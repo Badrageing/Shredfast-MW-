@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ShredFast">
+    <title>ShredFast - 10 Wochen Block</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: #f3f4f6;
+            color: #111;
+            width: 100%;
+            height: 100%;
+        }
+        body {
+            overflow-x: hidden;
+        }
+        button { font-family: inherit; cursor: pointer; border: none; background: none; }
+        input { font-family: inherit; }
+        .container { max-width: 500px; margin: 0 auto; min-height: 100vh; background: #f3f4f6; }
+        .header { padding: 24px 18px 16px; background: #111; color: #fff; }
+        .header h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+        .header-meta { font-size: 10px; letter-spacing: 4px; color: #666; margin-bottom: 2px; text-transform: uppercase; }
+        .header-subtext { font-size: 11px; color: #666; margin-top: 8px; }
+        .progress { display: flex; gap: 16px; margin-top: 16px; align-items: center; }
+        .progress-count { text-align: center; }
+        .progress-count div:first-child { font-size: 20px; font-weight: 800; color: #fff; }
+        .progress-count span { font-size: 13px; color: #666; font-weight: 400; margin-left: 4px; }
+        .progress-count .label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+        .progress-bar { flex: 1; height: 6px; background: #333; border-radius: 99px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg,#4ade80,#facc15,#f97316); border-radius: 99px; transition: width 0.4s; }
+        .percent { font-size: 13px; font-weight: 700; color: #fff; }
+        .nav { display: flex; background: #fff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 20; }
+        .nav button { flex: 1; padding: 14px 8px; border: none; border-bottom: 2.5px solid transparent; color: #9ca3af; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .nav button.active { border-bottom-color: #111; color: #111; }
+        .content { padding: 14px; }
+        .week-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 4px; }
+        .week-tabs button { padding: 8px 12px; min-width: 46px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 8px; color: #6b7280; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        .week-tabs button.active { background: #111; border-color: #111; color: #fff; }
+        .phase-banner { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .phase-banner.intensity { background: #fffbeb; border-color: #fde68a; }
+        .phase-banner.peak { background: #fff7ed; border-color: #fed7aa; }
+        .phase-text { font-size: 11px; letter-spacing: 2px; font-weight: 700; text-transform: uppercase; color: #16a34a; }
+        .phase-banner.intensity .phase-text { color: #b45309; }
+        .phase-banner.peak .phase-text { color: #c2410c; }
+        .phase-progress { font-size: 13px; color: #374151; margin-top: 3px; font-weight: 500; }
+        .phase-dots { display: flex; gap: 6px; }
+        .phase-dot { width: 10px; height: 10px; border-radius: 50%; background: #e5e7eb; border: 1.5px solid #d1d5db; }
+        .phase-dot.done { background: #111; border-color: #111; }
+        .workout-card { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .workout-card.done { border-color: #bbf7d0; }
+        .workout-header { padding: 14px; display: flex; align-items: center; justify-content: space-between; }
+        .workout-left { display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer; }
+        .workout-day { width: 38px; height: 38px; background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #6b7280; flex-shrink: 0; }
+        .workout-card.done .workout-day { background: #f0fdf4; border-color: #bbf7d0; color: #16a34a; }
+        .workout-info { flex: 1; }
+        .workout-name { font-size: 14px; font-weight: 700; color: #111; }
+        .workout-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+        .workout-meta.done { color: #16a34a; font-weight: 600; }
+        .workout-actions { display: flex; gap: 6px; align-items: center; }
+        .btn-delete { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; color: #9ca3af; font-size: 12px; padding: 5px 9px; cursor: pointer; }
+        .btn-expand { color: #9ca3af; font-size: 12px; cursor: pointer; padding: 4px 6px; transition: transform 0.25s; }
+        .btn-expand.open { transform: rotate(180deg); }
+        .btn-log { background: #111; border-radius: 7px; color: #fff; font-size: 11px; padding: 7px 12px; cursor: pointer; font-weight: 700; }
+        .workout-card.done .btn-log { background: #f0fdf4; border: 1.5px solid #bbf7d0; color: #16a34a; }
+        .workout-result { border-top: 1px solid #f0fdf4; background: #f9fffe; padding: 10px 14px 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+        .result-item { }
+        .result-label { font-size: 10px; color: #9ca3af; letter-spacing: 1px; text-transform: uppercase; }
+        .result-value { font-size: 15px; font-weight: 800; color: #16a34a; margin-top: 2px; }
+        .workout-details { border-top: 1px solid #e5e7eb; padding: 14px; background: #fafafa; display: none; }
+        .workout-details.open { display: block; }
+        .details-title { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; font-weight: 600; }
+        .exercise-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+        .exercise-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+        .exercise-dot { width: 6px; height: 6px; border-radius: 50%; background: #111; flex-shrink: 0; }
+        .exercise-text { font-size: 13px; color: #111; font-weight: 500; }
+        .note-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 9px 12px; font-size: 12px; color: #374151; line-height: 1.6; }
+        .empty-state { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 28px; text-align: center; color: #9ca3af; font-size: 13px; }
+        .empty-state .success { color: #16a34a; font-weight: 600; }
+        .log-list { display: flex; flex-direction: column; gap: 8px; }
+        .log-item { background: #fff; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .log-item-left { }
+        .log-item-name { font-size: 13px; font-weight: 700; color: #111; }
+        .log-item-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+        .log-item-value { text-align: right; }
+        .log-item-value div { font-size: 13px; font-weight: 800; color: #16a34a; }
+        .workout-db { }
+        .db-group { margin-bottom: 16px; }
+        .db-group-title { font-size: 11px; color: #374151; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+        .db-item { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 11px 14px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .db-item-name { font-size: 13px; font-weight: 700; color: #111; }
+        .db-item-meta { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+        .db-item-exercises { font-size: 11px; color: #6b7280; margin-top: 5px; line-height: 1.5; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: flex-end; z-index: 50; }
+        .modal.open { display: flex; }
+        .modal-content { background: #fff; border-radius: 18px 18px 0 0; padding: 24px 18px 48px; width: 100%; max-width: 500px; margin: 0 auto; box-sizing: border-box; box-shadow: 0 -4px 24px rgba(0,0,0,0.12); }
+        .modal-handle { width: 36px; height: 4px; background: #e5e7eb; border-radius: 99px; margin: 0 auto 20px; }
+        .modal-title { font-size: 11px; color: #9ca3af; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 3px; font-weight: 600; }
+        .modal-name { font-size: 17px; font-weight: 800; color: #111; margin-bottom: 20px; }
+        .form-group { margin-bottom: 14px; }
+        .form-label { font-size: 12px; color: #374151; font-weight: 600; margin-bottom: 6px; }
+        .form-input { width: 100%; padding: 12px 14px; background: #fff; border: 1.5px solid #d1d5db; border-radius: 10px; color: #111; font-size: 15px; box-sizing: border-box; }
+        .form-time { display: flex; gap: 8px; align-items: center; }
+        .form-time input { width: auto; flex: 1; }
+        .form-separator { color: #9ca3af; font-size: 20px; font-weight: 300; }
+        .btn-save { width: 100%; padding: 15px; background: #111; border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; }
+        .spacer { height: 30px; }
+        .saving { font-size: 11px; color: #4ade80; margin-top: 6px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-meta">Shred.Fast Block 2</div>
+            <h1>10 Wochen</h1>
+            <div class="header-subtext" id="savingStatus"></div>
+            <div class="progress">
+                <div class="progress-count">
+                    <div><span id="totalDone">0</span><span>/30</span></div>
+                    <div class="label">Sessions</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="percent" id="progressPercent">0%</div>
+            </div>
+        </div>
+
+        <div class="nav">
+            <button class="nav-btn active" data-tab="plan">Plan</button>
+            <button class="nav-btn" data-tab="progress">Fortschritt</button>
+            <button class="nav-btn" data-tab="db">Workouts</button>
+        </div>
+
+        <div class="content" id="content">
+            <!-- Content will be rendered here -->
+        </div>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-handle"></div>
+            <div class="modal-title" id="modalTitle"></div>
+            <div class="modal-name" id="modalName"></div>
+            
+            <div class="form-group">
+                <div class="form-label">Gewicht (kg)</div>
+                <input type="number" class="form-input" id="inputWeight" placeholder="z.B. 15">
+            </div>
+
+            <div class="form-group" id="formTimeGroup" style="display:none;">
+                <div class="form-label">Zeit (Min : Sek)</div>
+                <div class="form-time">
+                    <input type="number" class="form-input" id="inputMins" placeholder="Min">
+                    <span class="form-separator">:</span>
+                    <input type="number" class="form-input" id="inputSecs" placeholder="Sek">
+                </div>
+            </div>
+
+            <div class="form-group" id="formRoundsGroup" style="display:none;">
+                <div class="form-label">Runden</div>
+                <input type="number" class="form-input" id="inputRounds" placeholder="z.B. 6">
+            </div>
+
+            <div class="form-group">
+                <div class="form-label">Notiz (optional)</div>
+                <input type="text" class="form-input" id="inputNote" placeholder="Wie war's?">
+            </div>
+
+            <button class="btn-save" id="btnSave">Speichern ✓</button>
+        </div>
+    </div>
+
+    <script>
+        // ─── DATA ────────────────────────────────────────────────────────────
+        const WORKOUTS = [
+          { id:"b1-01", name:"150 Rep Challenge", format:"For Time", metric:"time", exercises:["30x Thruster","30x Deadlift","30x Renegade Row + Press","30x Alt Row","30x Reverse Lunge"] },
+          { id:"b1-02", name:"AMRAP 15 ⭐", format:"AMRAP", metric:"rounds", exercises:["8x Deadlift","6x Clean","8x Squat","6x Press","10x Swing"] },
+          { id:"b1-03", name:"30 Min Fullbody", format:"For Time", metric:"time", exercises:["50x Burpee","50x Deadlift","50x Squat","50x Reverse Lunge","50x BW Thruster"] },
+          { id:"b1-04", name:"AMRAP 20", format:"AMRAP", metric:"rounds", exercises:["6x Thruster","8x High Pull","10x Air Squat","12x Switch Lunge","14x Knee-to-Elbow"] },
+          { id:"b1-05", name:"15 Min Fullbody", format:"For Time", metric:"time", exercises:["50x Swing","50x Goblet Squat","50x Deadlift","25x Rev. Lunge R+L","50x Sit-Through","50x Mountain Climber"] },
+          { id:"b1-06", name:"250 Reps", format:"For Time", metric:"time", exercises:["50x Swing","50x Clean","50x Press","50x Squat","50x Row"] },
+          { id:"b1-07", name:"Time Cap 20 Min", format:"For Time", metric:"time", exercises:["30x Deadlift","30x High Pull","30x Thruster","30x Clean+Press","30x Burpee","30x Knee-to-Elbow","30x Russian Twist"] },
+          { id:"b1-08", name:"Power Flow Ladder", format:"Ladder", metric:"rounds", exercises:["Swing · Clean · Press · Squat · Row","1→2→3→...→10 reps"] },
+          { id:"b1-09", name:"METCON 30", format:"For Time", metric:"time", exercises:["100x Star Jumps","50x Squat Rotation","50x BW Thruster","50x KB Thruster","50x High Pull","50x Deadlift","50x Pull Through"] },
+          { id:"b1-10", name:"AMRAP 30", format:"AMRAP", metric:"rounds", exercises:["8x Deadlift","8x Clean","8x Thruster","8x Press-Up","8x Burpee"] },
+          { id:"b1-11", name:"AMRAP 16", format:"AMRAP", metric:"rounds", exercises:["10x Row","8x Thruster","6x Clean-Squat","4x Press","2x Devil Press"] },
+          { id:"b1-12", name:"300 Reps", format:"For Time", metric:"time", exercises:["50x Thruster","50x High Pull","50x Press-Up","50x Alt Row+Double Row","50x Burpee","50x Pull Through"] },
+          { id:"b1-13", name:"30 Min Buy-Out", format:"For Time", metric:"time", exercises:["50x Swing","40x Clean+Press","40x Deadlift","40x Row","50x Burpee"] },
+          { id:"b1-14", name:"METCON 325", format:"For Time", metric:"time", exercises:["25x Burpee","50x Deadlift","50x Reverse Lunge","50x Squat","50x High Pull","50x Row","50x Shoulder Tap"] },
+          { id:"b1-15", name:"300 Rep Beast", format:"For Time", metric:"time", exercises:["50x Swing","50x Squat","50x Clean","50x Press","50x Row","50x Burpee"] },
+          { id:"b1-16", name:"500 Rep Monster", format:"For Time", metric:"time", exercises:["50x Alt Row+Deadlift","50x Thruster","200x Air Squat","100x Press-Up KB Tap","100x Shoulder Tap"] },
+          { id:"n-01", name:"300 No Excuses", format:"For Time", metric:"time", exercises:["50x Burpee","50x Snatch","50x Thruster","50x Press","50x Row","50x Full Sit-Up"] },
+          { id:"n-02", name:"5 Rounds Snatch", format:"For Time", metric:"time", exercises:["5 Runden: 10x Burpee","10x Snatch","10x Thruster","10x Press","10x Row","10x Sprinter Sit-Up"] },
+          { id:"n-03", name:"300 YOU VS YOU", format:"For Time", metric:"time", exercises:["50x Renegade Row","50x Power Clean","50x Press","50x Squat","50x BW Thruster","50x Knee-to-Elbow"] },
+          { id:"n-04", name:"50er Snatch Block", format:"For Time", metric:"time", exercises:["50x Snatch","50x Squat","50x Lunge","50x Thruster","50x Row","50x Russian Twist"] },
+          { id:"n-05", name:"20 Min KB METCON", format:"For Time", metric:"time", exercises:["30x Row","30x Swing","30x Press","30x Clean","30x Squat","30x Full Body Crunch"] },
+          { id:"n-06", name:"AMRAP20 Burpee", format:"AMRAP", metric:"rounds", exercises:["10x Burpee","10x Squat","10x Row","10x Press","20x Knee-to-Elbow"] },
+          { id:"n-07", name:"AMRAP15 Press Up", format:"AMRAP", metric:"rounds", exercises:["10x Press Up","10x Deadlift","10x Press","10x Row"] },
+          { id:"n-08", name:"300 Gorilla Row", format:"For Time", metric:"time", exercises:["50x Deadlift","50x Push Press","50x Squat","50x Gorilla Row","50x Marches","50x Swing"] },
+          { id:"n-09", name:"500 Rep Beast 2", format:"For Time", metric:"time", exercises:["100x BW Squat","100x Switch Lunge","50x Renegade Row","50x Thruster","50x High Pull","50x Shoulder Tap","100x Star Jump"] },
+          { id:"n-10", name:"300 Burpee Buy-In", format:"For Time", metric:"time", exercises:["50x Burpee (Buy-In)","50x Swing","50x Squat","50x Press-Up","50x Row","50x Thruster"] },
+          { id:"n-11", name:"250 Snatch Interrupt", format:"For Time", metric:"time", exercises:["50x Air Squat","50x Goblet Squat","50x Snatch","50x Row","50x Thruster","+ 10x Burpee alle 4 Min"] },
+        ];
+
+        const BLOCK2_PLAN = [
+          { week: 1, day: "Mo", workoutId: "n-07", weight: "14", note: "Leichter Start" },
+          { week: 1, day: "Mi", workoutId: "b1-02", weight: "14", note: "Baseline AMRAP 15" },
+          { week: 1, day: "Fr", workoutId: "n-05", weight: "14", note: "Volumen, kurz" },
+          { week: 2, day: "Mo", workoutId: "b1-06", weight: "14", note: "250 Reps" },
+          { week: 2, day: "Mi", workoutId: "n-06", weight: "14", note: "AMRAP20 Burpee" },
+          { week: 2, day: "Fr", workoutId: "b1-01", weight: "14", note: "150 Rep Challenge" },
+          { week: 3, day: "Mo", workoutId: "n-02", weight: "15", note: "5 Rounds Snatch" },
+          { week: 3, day: "Mi", workoutId: "b1-02", weight: "15", note: "AMRAP 15 @ 15kg" },
+          { week: 3, day: "Fr", workoutId: "b1-07", weight: "15", note: "Time Cap 20 Min" },
+          { week: 4, day: "Mo", workoutId: "b1-12", weight: "15", note: "300 Reps" },
+          { week: 4, day: "Mi", workoutId: "n-08", weight: "15", note: "300 Gorilla Row" },
+          { week: 4, day: "Fr", workoutId: "b1-08", weight: "15", note: "Power Flow Ladder" },
+          { week: 5, day: "Mo", workoutId: "n-01", weight: "15", note: "300 No Excuses" },
+          { week: 5, day: "Mi", workoutId: "b1-02", weight: "16", note: "AMRAP 15 @ 16kg" },
+          { week: 5, day: "Fr", workoutId: "b1-09", weight: "15", note: "METCON 30" },
+          { week: 6, day: "Mo", workoutId: "b1-14", weight: "16", note: "METCON 325" },
+          { week: 6, day: "Mi", workoutId: "n-03", weight: "16", note: "300 YOU VS YOU" },
+          { week: 6, day: "Fr", workoutId: "b1-13", weight: "16", note: "30 Min Buy-Out" },
+          { week: 7, day: "Mo", workoutId: "b1-15", weight: "17", note: "300 Rep Beast" },
+          { week: 7, day: "Mi", workoutId: "b1-02", weight: "17", note: "AMRAP 15 @ 17kg" },
+          { week: 7, day: "Fr", workoutId: "n-10", weight: "17", note: "300 Burpee Buy-In" },
+          { week: 8, day: "Mo", workoutId: "n-04", weight: "17", note: "50er Snatch Block" },
+          { week: 8, day: "Mi", workoutId: "b1-10", weight: "18", note: "AMRAP 30 @ 18kg" },
+          { week: 8, day: "Fr", workoutId: "b1-16", weight: "17", note: "500 Rep Monster" },
+          { week: 9, day: "Mo", workoutId: "b1-12", weight: "17", note: "300 Reps" },
+          { week: 9, day: "Mi", workoutId: "b1-02", weight: "18", note: "AMRAP 15 @ 18kg" },
+          { week: 9, day: "Fr", workoutId: "n-09", weight: "17", note: "500 Rep Beast 2" },
+          { week: 10, day: "Mo", workoutId: "b1-04", weight: "16", note: "AMRAP 20 Deload" },
+          { week: 10, day: "Mi", workoutId: "b1-02", weight: "17", note: "AMRAP 15 Final" },
+          { week: 10, day: "Fr", workoutId: "b1-01", weight: "15", note: "150 Rep Challenge Final" },
+        ];
+
+        // ─── STATE ───────────────────────────────────────────────────────────
+        let logs = [];
+        let currentTab = "plan";
+        let currentWeek = 1;
+        let expandedSession = null;
+        let loggingSession = null;
+
+        const STORAGE_KEY = "sf_v6_logs";
+
+        // ─── INIT ────────────────────────────────────────────────────────────
+        function init() {
+            loadLogs();
+            setupNav();
+            setupModal();
+            render();
+        }
+
+        function loadLogs() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                logs = raw ? JSON.parse(raw) : [];
+            } catch(e) {
+                logs = [];
+            }
+        }
+
+        function saveLogs() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+            renderHeader();
+        }
+
+        function setupNav() {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentTab = btn.dataset.tab;
+                    render();
+                });
+            });
+        }
+
+        function setupModal() {
+            const modal = document.getElementById('modal');
+            modal.addEventListener('click', e => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+            document.getElementById('btnSave').addEventListener('click', saveLog);
+        }
+
+        // ─── RENDER ──────────────────────────────────────────────────────────
+        function render() {
+            renderHeader();
+            if (currentTab === "plan") renderPlan();
+            else if (currentTab === "progress") renderProgress();
+            else if (currentTab === "db") renderDB();
+        }
+
+        function renderHeader() {
+            const total = logs.length;
+            const pct = Math.round((total / 30) * 100);
+            document.getElementById('totalDone').textContent = total;
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('progressPercent').textContent = pct + '%';
+        }
+
+        function renderPlan() {
+            const weekPlan = BLOCK2_PLAN.filter(s => s.week === currentWeek);
+            const weekDone = weekPlan.filter(s => logs.find(l => l.key === `W${s.week}-${s.day}`)).length;
+
+            let phase = "AUFBAU";
+            let phaseBgClass = "";
+            if (currentWeek > 3 && currentWeek <= 7) { phase = "INTENSITÄT"; phaseBgClass = "intensity"; }
+            if (currentWeek > 7) { phase = "PEAK"; phaseBgClass = "peak"; }
+
+            let html = `
+                <div class="week-tabs">
+                    ${Array.from({length:10},(_,i)=>i+1).map(w => {
+                        const wd = BLOCK2_PLAN.filter(p=>p.week===w).filter(s => logs.find(l => l.key === `W${s.week}-${s.day}`)).length;
+                        const active = currentWeek === w ? 'active' : '';
+                        const badge = wd === 3 && currentWeek !== w ? '<span style="position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#4ade80;border:2px solid #f3f4f6;"></span>' : '';
+                        return `<button class="week-tabs button ${active}" onclick="window.setWeek(${w})" style="position:relative;">${badge}W${w}</button>`;
+                    }).join('')}
+                </div>
+                <div class="phase-banner ${phaseBgClass}">
+                    <div>
+                        <div class="phase-text">Woche ${currentWeek} · ${phase}</div>
+                        <div class="phase-progress">${weekDone}/3 Workouts erledigt</div>
+                    </div>
+                    <div class="phase-dots">
+                        ${[0,1,2].map(i => `<div class="phase-dot ${i<weekDone?'done':''}"></div>`).join('')}
+                    </div>
+                </div>
+                ${weekPlan.map((plan, i) => {
+                    const workout = WORKOUTS.find(w => w.id === plan.workoutId);
+                    const key = `W${plan.week}-${plan.day}`;
+                    const log = logs.find(l => l.key === key);
+                    const done = !!log;
+                    const open = expandedSession === key;
+                    
+                    return `
+                        <div class="workout-card ${done ? 'done' : ''}">
+                            <div class="workout-header">
+                                <div class="workout-left" onclick="window.toggleExpand('${key}')">
+                                    <div class="workout-day">${plan.day[0]}</div>
+                                    <div class="workout-info">
+                                        <div class="workout-name">${workout.name}</div>
+                                        <div class="workout-meta ${done ? 'done' : ''}">
+                                            ${workout.format} · ${plan.weight}kg
+                                            ${done ? ` · ✓ ${log.date}` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="workout-actions">
+                                    ${done ? `<button class="btn-delete" onclick="window.deleteLog('${key}')">✕</button>` : ''}
+                                    <div class="btn-expand ${open ? 'open' : ''}" onclick="window.toggleExpand('${key}')">▼</div>
+                                    <button class="btn-log" onclick="window.openLog('${key}', ${plan.week}, '${plan.day}', '${plan.workoutId}', '${workout.metric}')">${done ? 'Edit' : 'Log'}</button>
+                                </div>
+                            </div>
+                            ${done ? `
+                                <div class="workout-result">
+                                    ${log.weight ? `<div class="result-item"><div class="result-label">Gewicht</div><div class="result-value">${log.weight}kg</div></div>` : ''}
+                                    ${workout.metric === 'time' && log.mins !== '' ? `<div class="result-item"><div class="result-label">Zeit</div><div class="result-value">${fmt(log.mins, log.secs)}</div></div>` : ''}
+                                    ${workout.metric === 'rounds' && log.rounds !== '' ? `<div class="result-item"><div class="result-label">Runden</div><div class="result-value">${log.rounds}</div></div>` : ''}
+                                    ${log.note ? `<div class="result-item" style="width:100%"><div class="result-label">Notiz</div><div style="font-size:12px;color:#374151;font-style:italic;margin-top:2px">${log.note}</div></div>` : ''}
+                                </div>
+                            ` : ''}
+                            ${open ? `
+                                <div class="workout-details open">
+                                    <div class="details-title">Übungen</div>
+                                    <div class="exercise-list">
+                                        ${workout.exercises.map(ex => `
+                                            <div class="exercise-item">
+                                                <div class="exercise-dot"></div>
+                                                <span class="exercise-text">${ex}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    <div class="note-box">💡 ${plan.note}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('')}
+                <div class="spacer"></div>
+            `;
+
+            document.getElementById('content').innerHTML = html;
+        }
+
+        function renderProgress() {
+            const logsSorted = [...logs].sort((a,b) => {
+                const aPos = BLOCK2_PLAN.findIndex(s => s.week===a.week && s.day===a.day);
+                const bPos = BLOCK2_PLAN.findIndex(s => s.week===b.week && s.day===b.day);
+                return aPos - bPos;
+            });
+
+            let html = `<div class="details-title">Deine Logs</div>`;
+            if (logs.length === 0) {
+                html += `<div class="empty-state">Noch keine Sessions.<br><span class="success">Starte mit Woche 1! 💪</span></div>`;
+            } else {
+                html += `<div class="log-list">`;
+                logsSorted.forEach(log => {
+                    const plan = BLOCK2_PLAN.find(s => s.week===log.week && s.day===log.day);
+                    const workout = WORKOUTS.find(w => w.id === log.workoutId);
+                    html += `
+                        <div class="log-item">
+                            <div class="log-item-left">
+                                <div class="log-item-name">W${log.week} ${log.day} · ${workout?.name}</div>
+                                <div class="log-item-meta">${log.date} · ${log.weight}kg</div>
+                            </div>
+                            <div class="log-item-value">
+                                <div>${log.time || (log.rounds ? log.rounds + ' Rdn' : '')}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            html += `<div class="spacer"></div>`;
+            document.getElementById('content').innerHTML = html;
+        }
+
+        function renderDB() {
+            let html = `<div class="details-title">27 Workouts</div><div class="workout-db">`;
+            
+            ["b1", "n"].forEach(prefix => {
+                const items = WORKOUTS.filter(w => w.id.startsWith(prefix));
+                const label = prefix === "b1" ? "Block 1" : "Neue";
+                html += `<div class="db-group"><div class="db-group-title">${label} (${items.length})</div>`;
+                items.forEach(w => {
+                    html += `
+                        <div class="db-item">
+                            <div class="db-item-name">${w.name}</div>
+                            <div class="db-item-meta">${w.format} · ${w.metric === 'time' ? 'Zeit' : 'Runden'}</div>
+                            <div class="db-item-exercises">${w.exercises.join(' · ')}</div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            });
+
+            html += `</div><div class="spacer"></div>`;
+            document.getElementById('content').innerHTML = html;
+        }
+
+        // ─── MODAL & LOGGING ──────────────────────────────────────────────────
+        function openLog(key, week, day, workoutId, metric) {
+            loggingSession = { key, week, day, workoutId, metric };
+            const log = logs.find(l => l.key === key);
+            const workout = WORKOUTS.find(w => w.id === workoutId);
+            
+            document.getElementById('modalTitle').textContent = `W${week} · ${day}`;
+            document.getElementById('modalName').textContent = workout.name;
+            
+            document.getElementById('inputWeight').value = log?.weight || '15';
+            document.getElementById('inputMins').value = log?.mins || '';
+            document.getElementById('inputSecs').value = log?.secs || '';
+            document.getElementById('inputRounds').value = log?.rounds || '';
+            document.getElementById('inputNote').value = log?.note || '';
+
+            if (metric === 'time') {
+                document.getElementById('formTimeGroup').style.display = 'block';
+                document.getElementById('formRoundsGroup').style.display = 'none';
+            } else {
+                document.getElementById('formTimeGroup').style.display = 'none';
+                document.getElementById('formRoundsGroup').style.display = 'block';
+            }
+
+            document.getElementById('modal').classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('open');
+            loggingSession = null;
+        }
+
+        function saveLog() {
+            if (!loggingSession) return;
+            
+            const entry = {
+                key: loggingSession.key,
+                week: loggingSession.week,
+                day: loggingSession.day,
+                workoutId: loggingSession.workoutId,
+                date: new Date().toLocaleDateString('de-DE'),
+                weight: document.getElementById('inputWeight').value,
+                mins: document.getElementById('inputMins').value,
+                secs: document.getElementById('inputSecs').value,
+                rounds: document.getElementById('inputRounds').value,
+                note: document.getElementById('inputNote').value,
+            };
+
+            logs = logs.filter(l => l.key !== loggingSession.key);
+            logs.push(entry);
+            saveLogs();
+            closeModal();
+            render();
+        }
+
+        function deleteLog(key) {
+            logs = logs.filter(l => l.key !== key);
+            saveLogs();
+            render();
+        }
+
+        // ─── UTILITIES ───────────────────────────────────────────────────────
+        function fmt(m, s) {
+            return `${String(m||0).padStart(2,'0')}:${String(s||0).padStart(2,'0')}`;
+        }
+
+        // ─── GLOBAL FUNCTIONS ────────────────────────────────────────────────
+        window.setWeek = (w) => {
+            currentWeek = w;
+            expandedSession = null;
+            render();
+        };
+
+        window.toggleExpand = (key) => {
+            expandedSession = expandedSession === key ? null : key;
+            render();
+        };
+
+        window.openLog = openLog;
+        window.deleteLog = deleteLog;
+
+        // ─── START ────────────────────────────────────────────────────────────
+        init();
+    </script>
+</body>
+</html>

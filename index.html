@@ -148,6 +148,8 @@
         .last-set { font-size:12px; color:#36563e; }
         .copy-weight { font-size:12px; margin:8px 0; }
     </style>
+<link rel="stylesheet" href="pro.css?v=10">
+<meta name="theme-color" content="#112e32">
 </head>
 <body>
     <div class="container">
@@ -171,8 +173,8 @@
             <select id="blockSelect"><option value="hybrid1">Neu · 8 Wochen Kraft + Ausdauer</option><option value="block2">Bisheriger Block · 10 Wochen / 30 Sessions</option></select>
         </label>
         <div class="nav">
-            <button class="nav-btn active" data-tab="plan">Plan</button>
-            <button class="nav-btn" data-tab="progress">Fortschritt</button>
+            <button class="nav-btn active" data-tab="plan">Training</button>
+            <button class="nav-btn" data-tab="progress">Verlauf</button>
             <button class="nav-btn" data-tab="db">Workouts</button>
         </div>
 
@@ -195,7 +197,7 @@
             </div>
             <button id="exportBackup" type="button">Backup exportieren</button>
             <label class="import-label">Backup importieren<input id="importBackup" type="file" accept=".json,application/json"></label>
-            <p>Version 9 · Zirkelrotation, Ganzkörper &amp; Core. Deine alten Gerätedaten bleiben bei der Übernahme erhalten.</p>
+            <p>Version 10 · Training Studio. Deine alten Gerätedaten bleiben bei der Übernahme erhalten.</p>
         </details>
         <div class="content" id="content">
             <!-- Content will be rendered here -->
@@ -603,6 +605,7 @@
     </div>
     <script src="training.js?v=9"></script>
     <script src="cloud.js?v=9"></script>
+    <script src="pro.js?v=10"></script>
     <script>init(); void initCloud();</script>
 </body>
 </html>

@@ -13,20 +13,20 @@ function fill(id,value){assert(el(id),'Missing input '+id);el(id).value=String(v
 function change(id,value){el(id).value=value;el(id).dispatchEvent(new window.Event('change',{bubbles:true}));}
 function submit(){el('hybridForm').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));}
 run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''));
-run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));
+run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));run(fs.readFileSync(__dirname+'/pro.js','utf8'));
 (async()=>{
  run('init()');await run('initCloud()');
- assert(el('content').textContent.includes('AMRAP15 Press Up'));
+ assert(el('content').textContent.includes('AMRAP15 Press Up'));assert(el('content').textContent.includes('Dein nächster Schritt'));
  run("openHybrid('W1-Mo')");
  assert(el('hybridFields').textContent.includes('Bizeps-Curls'));assert(el('hybridFields').textContent.includes('Plank Dumbbell Drag'));
  for(const ex of ['squat','floor','rdl','row'])for(const n of [1,2]){fill(`s-${ex}-${n}-weight`,15);fill(`s-${ex}-${n}-reps`,10);}
  fill('s-squat-1-weight',16);el('hybridFields').querySelector('.copy-weight[data-exercise="squat"]').click();
  assert.equal(el('s-squat-3-weight').value,'16'); // Blank rep rows must not create phantom sets.
  for(const n of [1,2]){fill(`s-drag-${n}-weight`,6);fill(`s-drag-${n}-reps`,8);fill(`s-curl-${n}-weight`,10);fill(`s-curl-${n}-reps`,12);}
- fill('hDuration',35);fill('hNote','<img src=x onerror=alert(1)>');
+ document.querySelectorAll('input').forEach(input=>{if(!input.checkValidity)input.checkValidity=()=>true});document.querySelector('.set-check').click();assert(document.querySelector('.set-row.done'));assert(el('restStatus').textContent.includes('90'));fill('hDuration',35);fill('hNote','<img src=x onerror=alert(1)>');
  run('closeHybrid()');run("openHybrid('W1-Mo')");assert.equal(el('s-drag-1-weight').value,'6','draft restores drag weight');
  submit();assert.deepEqual(alerts,[]);assert.equal(run('logs.length'),1);assert.equal(run('logs[0].sets.length'),12);assert.equal(run("logs[0].sets.find(s=>s.exercise==='drag').weight"),'6');
- assert(!document.querySelector('img'),'note escaped');assert.equal(storage.has('sf_draft_v9_local_hybrid1_W1-Mo'),false,'saved draft cleared');
+ run("currentTab='progress';render()");assert(el('historyExercise'));assert(el('exerciseTimeline').textContent.includes('16 kg'));run("currentTab='plan';render()");assert(!document.querySelector('img'),'note escaped');assert.equal(storage.has('sf_draft_v9_local_hybrid1_W1-Mo'),false,'saved draft cleared');
  run("openHybrid('W1-Mi')");fill('s-row-1-weight',17);fill('s-row-1-reps',10);fill('hDuration',12);change('hStatus','partial');submit();
  assert.equal(run('logs.length'),2);assert.equal(el('totalDone').textContent,'1','partial not counted complete');
  run("openHybrid('W2-Fr')");assert.equal(el('hWorkout').value,'circuit-burpee');fill('hWeight',12);fill('hRounds',5);fill('hDuration',24);submit();

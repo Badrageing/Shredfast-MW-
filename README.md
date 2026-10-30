@@ -48,3 +48,21 @@ RLS permits authenticated users to SELECT and INSERT only their own rows; anonym
 Run `node test-state.cjs` (no dependencies) for offline queue durability, migration isolation, retry, deletion, account separation, HTML escaping, invalid imports, storage failure behavior, hybrid per-set validation, optional running, and offline block switching. Backups v1 from the old block remain importable with that block selected; version 2 includes its block identifier. Imports are additive and do not replace existing sessions. The DOM is stubbed: this does not replace a real mobile browser test.
 
 Database validation checked RLS and grants and verified rejection of cross-user inserts inside a rolled-back transaction. A real user sign-in and first device migration require the account owner. Tests do not use real credentials or training records.
+
+## v11 — Quick logging and progression dashboard
+
+Standard prescription: 3 sets for the four main lifts, 2 for shoulders, arms and core. Short sessions retain the existing two-main-set completion rule so old entries remain valid. With a 20-minute budget use the short variant; the complete standard volume may exceed 40 minutes including rests.
+
+Latest weight is a suggestion only; repetition fields remain blank until entered or explicitly copied. Copy buttons never copy RIR. RIR remains optional and can be expanded. Filled repetition rows are still the source of truth, not visual checkmarks.
+
+The dashboard reports selected plan-week completed strength/circuit sessions and actual core sets. Exercise trends compare the two latest dated strength exposures only if the set count matches the prescription and each exposure uses one consistent load. A load increase is reported separately from repetition progress. No hypertrophy or estimated 1RM claims are inferred.
+
+Progression suggestion: twice reach the upper rep target at the same load on different dates using the full prescribed set count. The latest last set needs >=1 RIR, with no recorded zero-RIR sets; otherwise the UI asks the user to check reserve/technique. Recommend the smallest available increment, capped at 24 kg, rather than inventing the dumbbell increment. Core/bodyweight exercises receive rep/time guidance. Deload week 5 does not prompt an increase in the workout form.
+
+### Apple Watch follow-up (not connected)
+
+The current browser app does not read HealthKit. A native iOS companion or wrapper with a native HealthKit module, signing and an iPhone build is required. Ask for granular read authorization only for selected data types. A first integration could read workouts, sleep and resting heart rate; missing samples must remain unknown, never become zero. Deduplicate by HealthKit sample UUID, preserve timestamps/timezones, and handle revoked access. Keep raw health data on-device by default; cloud upload requires a separate deliberate data decision.
+
+Recovery suggestions should compare personal multi-day baselines, expose evidence and let the user override. Never increase weights based on watch calories, sleep or heart rate alone. Strength progression continues to depend on logged load, reps, set count, technique and reserve. Real HealthKit authorization and background synchronization need native-device tests; none is implemented or claimed in v11.
+
+Primary Apple reference: https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data

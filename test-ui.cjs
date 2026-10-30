@@ -40,5 +40,19 @@ run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirn
  el('startRest').click();assert(el('restStatus').textContent.includes('90'));el('stopRest').click();assert.equal(el('restStatus').textContent,'Pausentimer');
  await run("switchAccount({id:'11111111-1111-4111-8111-111111111111',email:'test@example.com'})");
  assert(storage.has('sf_draft_v9_local_hybrid1_W2-So'));assert(!storage.has('sf_draft_v9_11111111-1111-4111-8111-111111111111_hybrid1_W2-So'),'draft not leaked across account');
+ // Progression must not mistake missing sets or a changed load for rep progress.
+ run("logs=[]");assert.equal(run("exerciseProgress('squat').state"),'empty');
+ run(`logs=['2026-10-20','2026-10-24'].map((dateISO,i)=>({key:'W'+(i+1)+'-Mo',week:i+1,day:'Mo',dateISO,workoutId:'strength-a',sets:[1,2,3].map(set=>({exercise:'squat',set,weight:'18',reps:'12',rir:'2'}))}))`);
+ assert.equal(run("exerciseProgress('squat').state"),'increase');
+ run("logs[1].sets[2].rir=''");assert.equal(run("exerciseProgress('squat').state"),'check');
+ run("logs[1].sets.pop()");assert.equal(run("exerciseProgress('squat').state"),'hold');
+ assert.equal(run("exerciseProgress('squat').trend"),'Noch kein vergleichbarer Verlauf');
+ run("logs[1].sets.push({exercise:'squat',set:3,weight:'18',reps:'10',rir:'2'})");
+ assert(run("exerciseProgress('squat').trend").startsWith('-2'));
+ run("logs.forEach(l=>l.sets.forEach(s=>{s.weight='24';s.reps='12';s.rir='2'}))");assert.equal(run("exerciseProgress('squat').state"),'limit');
+ run("logs[1].dateISO=logs[0].dateISO");assert.equal(run("exerciseProgress('squat').state"),'hold');
+ assert.equal(run("plannedSets('squat')"),3);assert.equal(run("plannedSets('press')"),2);
+ run("logs=[];openHybrid('W1-Mo')");fill('s-squat-1-weight',12);fill('s-squat-1-reps',9);
+ document.querySelectorAll('[data-exercise=squat].set-row')[1].querySelector('.repeat-set').click();assert.equal(el('s-squat-2-reps').value,'9');assert.equal(el('s-squat-2-weight').value,'12');assert.equal(el('s-squat-3-reps').value,'');
  console.log('PASS: DOM forms; rotation; arms/chest/core fields; actual sets only; weighted drag; draft recovery; completed/partial counts; reps/time circuit; optional run/strength selection; timer; draft account isolation.');
 })().catch(e=>{console.error(e,alerts);process.exitCode=1});

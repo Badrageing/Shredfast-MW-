@@ -114,6 +114,15 @@
         .btn-save { width: 100%; padding: 15px; background: #111; border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; }
         .spacer { height: 30px; }
         .saving { font-size: 11px; color: #4ade80; margin-top: 6px; font-weight: 600; }
+        .backup-panel { margin: 12px 14px; padding: 14px; border: 1px solid #d1d5db; border-radius: 10px; background: white; font-size: 13px; }
+        .backup-panel summary { font-weight: 700; cursor: pointer; }
+        .backup-panel p { margin: 12px 0; line-height: 1.5; overflow-wrap: anywhere; }
+        .backup-panel label { display: block; margin-top: 10px; }
+        .backup-panel input:not([type=file]) { display: block; width: 100%; padding: 12px; font-size:16px; margin-top: 5px; border:1px solid #aaa; border-radius:8px; }
+        .backup-panel button, .import-label { display: inline-block; padding: 12px; margin: 8px 5px 0 0; background: #111; color: white; border-radius: 8px; font-weight: 600; }
+        .backup-panel input[type=file] { display:block; max-width:100%; margin-top:8px; }
+        .backup-panel button:disabled { opacity: .5; }
+        [hidden] { display: none !important; }
     </style>
 </head>
 <body>
@@ -140,6 +149,27 @@
             <button class="nav-btn" data-tab="db">Workouts</button>
         </div>
 
+        <details class="backup-panel">
+            <summary>Daten &amp; Cloud-Backup</summary>
+            <p id="cloudAccount"></p>
+            <p id="cloudUnavailable" hidden>Cloud-Modul nicht verfügbar. Lokales Training und Export bleiben nutzbar.</p>
+            <form id="loginForm">
+                <p>Mit deinem bestehenden Supabase-/LifeOS-Konto anmelden. Danach „Bisherige iPhone-Daten übernehmen“ wählen.</p>
+                <label>E-Mail<input id="cloudEmail" type="email" autocomplete="username" required></label>
+                <label>Passwort<input id="cloudPassword" type="password" autocomplete="current-password" required></label>
+                <button id="loginButton" type="submit">Cloud anmelden</button>
+                <p id="loginResult" role="status"></p>
+            </form>
+            <div id="signedInTools" hidden>
+                <button id="syncNow" type="button">Jetzt synchronisieren</button>
+                <button id="legacyImport" type="button">Bisherige iPhone-Daten übernehmen</button>
+                <button id="signOut" type="button">Abmelden</button>
+                <p>Offline-Änderungen werden beim nächsten Öffnen mit Internet übertragen. Bei Änderungen derselben Session auf mehreren Geräten gilt die zuletzt in der Cloud gespeicherte Änderung.</p>
+            </div>
+            <button id="exportBackup" type="button">Backup exportieren</button>
+            <label class="import-label">Backup importieren<input id="importBackup" type="file" accept=".json,application/json"></label>
+            <p>Version 7 · Cloud &amp; Backup. Deine alten Gerätedaten bleiben bei der Übernahme erhalten.</p>
+        </details>
         <div class="content" id="content">
             <!-- Content will be rendered here -->
         </div>
@@ -179,6 +209,7 @@
         </div>
     </div>
 
+    <script src="supabase.min.js"></script>
     <script>
         // ─── DATA ────────────────────────────────────────────────────────────
         const WORKOUTS = [
@@ -271,8 +302,7 @@
         }
 
         function saveLogs() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-            renderHeader();
+            return storeTrainingChange();
         }
 
         function setupNav() {
@@ -355,7 +385,7 @@
                                         <div class="workout-name">${workout.name}</div>
                                         <div class="workout-meta ${done ? 'done' : ''}">
                                             ${workout.format} · ${plan.weight}kg
-                                            ${done ? ` · ✓ ${log.date}` : ''}
+                                            ${done ? ` · ✓ ${escapeHTML(log.date)}` : ''}
                                         </div>
                                     </div>
                                 </div>
@@ -367,10 +397,10 @@
                             </div>
                             ${done ? `
                                 <div class="workout-result">
-                                    ${log.weight ? `<div class="result-item"><div class="result-label">Gewicht</div><div class="result-value">${log.weight}kg</div></div>` : ''}
+                                    ${log.weight ? `<div class="result-item"><div class="result-label">Gewicht</div><div class="result-value">${escapeHTML(log.weight)}kg</div></div>` : ''}
                                     ${workout.metric === 'time' && log.mins !== '' ? `<div class="result-item"><div class="result-label">Zeit</div><div class="result-value">${fmt(log.mins, log.secs)}</div></div>` : ''}
-                                    ${workout.metric === 'rounds' && log.rounds !== '' ? `<div class="result-item"><div class="result-label">Runden</div><div class="result-value">${log.rounds}</div></div>` : ''}
-                                    ${log.note ? `<div class="result-item" style="width:100%"><div class="result-label">Notiz</div><div style="font-size:12px;color:#374151;font-style:italic;margin-top:2px">${log.note}</div></div>` : ''}
+                                    ${workout.metric === 'rounds' && log.rounds !== '' ? `<div class="result-item"><div class="result-label">Runden</div><div class="result-value">${escapeHTML(log.rounds)}</div></div>` : ''}
+                                    ${log.note ? `<div class="result-item" style="width:100%"><div class="result-label">Notiz</div><div style="font-size:12px;color:#374151;font-style:italic;margin-top:2px">${escapeHTML(log.note)}</div></div>` : ''}
                                 </div>
                             ` : ''}
                             ${open ? `
@@ -415,10 +445,10 @@
                         <div class="log-item">
                             <div class="log-item-left">
                                 <div class="log-item-name">W${log.week} ${log.day} · ${workout?.name}</div>
-                                <div class="log-item-meta">${log.date} · ${log.weight}kg</div>
+                                <div class="log-item-meta">${escapeHTML(log.date)} · ${escapeHTML(log.weight)}kg</div>
                             </div>
                             <div class="log-item-value">
-                                <div>${log.time || (log.rounds ? log.rounds + ' Rdn' : '')}</div>
+                                <div>${log.mins !== '' ? fmt(log.mins, log.secs) : (log.rounds ? escapeHTML(log.rounds) + ' Rdn' : '')}</div>
                             </div>
                         </div>
                     `;
@@ -491,7 +521,7 @@
                 week: loggingSession.week,
                 day: loggingSession.day,
                 workoutId: loggingSession.workoutId,
-                date: new Date().toLocaleDateString('de-DE'),
+                date: logs.find(l => l.key === loggingSession.key)?.date || new Date().toLocaleDateString('de-DE'),
                 weight: document.getElementById('inputWeight').value,
                 mins: document.getElementById('inputMins').value,
                 secs: document.getElementById('inputSecs').value,
@@ -501,14 +531,15 @@
 
             logs = logs.filter(l => l.key !== loggingSession.key);
             logs.push(entry);
-            saveLogs();
+            if (!saveLogs()) { logs = structuredClone(savedLogs); return; }
             closeModal();
             render();
         }
 
         function deleteLog(key) {
+            if (!confirm('Diese Session löschen? Die Löschung wird auch in der Cloud gespeichert.')) return;
             logs = logs.filter(l => l.key !== key);
-            saveLogs();
+            if (!saveLogs()) logs = structuredClone(savedLogs);
             render();
         }
 
@@ -533,7 +564,8 @@
         window.deleteLog = deleteLog;
 
         // ─── START ────────────────────────────────────────────────────────────
-        init();
     </script>
+    <script src="cloud.js"></script>
+    <script>init(); void initCloud();</script>
 </body>
 </html>

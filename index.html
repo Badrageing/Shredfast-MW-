@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ShredFast">
-    <title>ShredFast - 10 Wochen Block</title>
+    <title>ShredFast · Kraft & Ausdauer</title>
     <style>
         * {
             margin: 0;
@@ -123,17 +123,36 @@
         .backup-panel input[type=file] { display:block; max-width:100%; margin-top:8px; }
         .backup-panel button:disabled { opacity: .5; }
         [hidden] { display: none !important; }
+        .block-picker { display:block; margin:14px; font-size:12px; font-weight:700; }
+        .block-picker select { display:block; width:100%; margin-top:6px; padding:12px; font-size:16px; border:1px solid #bbb; border-radius:8px; background:white; color:#111; }
+        .hybrid-card { margin:12px 0; padding:14px; border:1px solid #d1d5db; border-radius:12px; background:white; font-size:13px; line-height:1.55; }
+        .hybrid-card p { margin:8px 0; }
+        .hybrid-card ul { padding-left:20px; margin:8px 0; }
+        .hybrid-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+        .hybrid-heading p { color:#555; font-size:12px; }
+        .hybrid-card button, .hybrid-modal button { padding:12px; color:white; background:#111; border-radius:8px; font-weight:700; }
+        .hybrid-card button.secondary, .hybrid-modal button.secondary { color:#111; background:#eee; }
+        .hybrid-modal { position:fixed; inset:0; z-index:70; background:#f3f4f6; overflow-y:auto; overscroll-behavior:contain; }
+        .hybrid-modal-inner { max-width:500px; margin:auto; padding:20px 14px max(30px,env(safe-area-inset-bottom)); font-size:13px; line-height:1.5; }
+        .hybrid-modal h2 { margin:16px 0; font-size:20px; }
+        .hybrid-modal label { display:block; margin:10px 0; }
+        .hybrid-modal input, .hybrid-modal select, .hybrid-modal textarea { display:block; width:100%; min-width:0; padding:10px 7px; border:1px solid #aaa; border-radius:7px; background:white; color:#111; font-size:16px; }
+        .hybrid-modal fieldset { padding:10px; border:1px solid #ccc; border-radius:10px; margin:18px 0; background:white; }
+        .hybrid-modal legend { font-weight:700; }
+        .set-row { display:flex; align-items:center; gap:6px; }
+        .set-row label { flex:1; min-width:0; font-size:11px; }
+        .set-row span { width:18px; flex-shrink:0; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="header-meta">Shred.Fast Block 2</div>
-            <h1>10 Wochen</h1>
+            <div class="header-meta" id="blockSubtitle">ShredFast</div>
+            <h1 id="blockTitle">Kraft & Ausdauer</h1>
             <div class="header-subtext" id="savingStatus"></div>
             <div class="progress">
                 <div class="progress-count">
-                    <div><span id="totalDone">0</span><span>/30</span></div>
+                    <div><span id="totalDone">0</span><span id="totalTarget">/24</span></div>
                     <div class="label">Sessions</div>
                 </div>
                 <div class="progress-bar">
@@ -143,6 +162,9 @@
             </div>
         </div>
 
+        <label class="block-picker">Trainingsblock
+            <select id="blockSelect"><option value="hybrid1">Neu · 8 Wochen Kraft + Ausdauer</option><option value="block2">Bisheriger Block · 10 Wochen / 30 Sessions</option></select>
+        </label>
         <div class="nav">
             <button class="nav-btn active" data-tab="plan">Plan</button>
             <button class="nav-btn" data-tab="progress">Fortschritt</button>
@@ -154,7 +176,7 @@
             <p id="cloudAccount"></p>
             <p id="cloudUnavailable" hidden>Cloud-Modul nicht verfügbar. Lokales Training und Export bleiben nutzbar.</p>
             <form id="loginForm">
-                <p>Mit deinem bestehenden Supabase-/LifeOS-Konto anmelden. Danach „Bisherige iPhone-Daten übernehmen“ wählen.</p>
+                <p>Mit deinem bestehenden Supabase-/LifeOS-Konto anmelden. Für alte Gerätedaten oben den bisherigen Block auswählen und dort „Bisherige iPhone-Daten übernehmen“ wählen.</p>
                 <label>E-Mail<input id="cloudEmail" type="email" autocomplete="username" required></label>
                 <label>Passwort<input id="cloudPassword" type="password" autocomplete="current-password" required></label>
                 <button id="loginButton" type="submit">Cloud anmelden</button>
@@ -168,7 +190,7 @@
             </div>
             <button id="exportBackup" type="button">Backup exportieren</button>
             <label class="import-label">Backup importieren<input id="importBackup" type="file" accept=".json,application/json"></label>
-            <p>Version 7 · Cloud &amp; Backup. Deine alten Gerätedaten bleiben bei der Übernahme erhalten.</p>
+            <p>Version 8 · Kraft, Ausdauer &amp; Core. Deine alten Gerätedaten bleiben bei der Übernahme erhalten.</p>
         </details>
         <div class="content" id="content">
             <!-- Content will be rendered here -->
@@ -286,7 +308,7 @@
 
         // ─── INIT ────────────────────────────────────────────────────────────
         function init() {
-            loadLogs();
+            logs = []; // initCloud loads the selected block without mixing legacy data.
             setupNav();
             setupModal();
             render();
@@ -565,7 +587,15 @@
 
         // ─── START ────────────────────────────────────────────────────────────
     </script>
-    <script src="cloud.js"></script>
+    <div id="hybridModal" class="hybrid-modal" hidden>
+      <div class="hybrid-modal-inner" role="dialog" aria-modal="true" aria-labelledby="hybridDialogTitle">
+       <button id="closeHybrid" class="secondary" type="button">Schließen</button>
+       <h2 id="hybridDialogTitle"></h2>
+       <form id="hybridForm"><div id="hybridFields"></div><button type="submit">Einheit speichern ✓</button></form>
+      </div>
+    </div>
+    <script src="hybrid.js?v=8"></script>
+    <script src="cloud.js?v=8"></script>
     <script>init(); void initCloud();</script>
 </body>
 </html>

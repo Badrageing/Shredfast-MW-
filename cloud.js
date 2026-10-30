@@ -6,16 +6,17 @@ const cloud = window.supabase?.createClient(CLOUD_URL, CLOUD_KEY, {
 });
 let account = null, pending = [], savedLogs = [], syncRunning = false, accountEpoch = 0;
 let syncMessage = 'Nur auf diesem Gerät gespeichert', storageFault = false;
-const cacheKey = () => account ? 'sf_cloud_v1_' + account.id : STORAGE_KEY;
+const cacheKey = () => account ? 'sf_cloud_v1_' + account.id + (appBlock === 'block2' ? '' : '_' + appBlock) : localLogsKey();
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function normalizeLogs(value) {
-    if (!Array.isArray(value) || value.length > 30) throw new Error('Backup muss höchstens 30 Sessions enthalten.');
+    if (!Array.isArray(value) || value.length > getPlan().length) throw new Error('Backup enthält zu viele Sessions für diesen Block.');
     const seen = new Set();
     return value.map(row => {
-        const plan = BLOCK2_PLAN.find(p => row && row.key === `W${p.week}-${p.day}`);
+        const plan = getPlan().find(p => row && row.key === `W${p.week}-${p.day}`);
         if (!plan || seen.has(row.key) || row.workoutId !== plan.workoutId) throw new Error('Ungültige oder doppelte Session.');
         seen.add(row.key);
+        if (appBlock === 'hybrid1') return normalizeHybridEntry(row, plan);
         const clean = {key: row.key, week: plan.week, day: plan.day, workoutId: plan.workoutId};
         for (const key of ['date','weight','mins','secs','rounds','note']) {
             if (row[key] != null && !['string','number'].includes(typeof row[key])) throw new Error('Ungültiges Datenfeld.');
@@ -65,10 +66,10 @@ function storeTrainingChange() {
     const nextPending = [...pending];
     if (account) {
         for (const old of savedLogs) if (!clean.some(l => l.key === old.key)) {
-            nextPending.push({id: crypto.randomUUID(), user_id: account.id, block_id: 'block2', session_key: old.key, entry: null, deleted: true});
+            nextPending.push({id: crypto.randomUUID(), user_id: account.id, block_id: appBlock, session_key: old.key, entry: null, deleted: true});
         }
         for (const row of clean) if (JSON.stringify(row) !== JSON.stringify(savedLogs.find(l => l.key === row.key))) {
-            nextPending.push({id: crypto.randomUUID(), user_id: account.id, block_id: 'block2', session_key: row.key, entry: row, deleted: false});
+            nextPending.push({id: crypto.randomUUID(), user_id: account.id, block_id: appBlock, session_key: row.key, entry: row, deleted: false});
         }
     }
     if (!persistCloudState(clean, nextPending)) return false;
@@ -82,7 +83,7 @@ function storeTrainingChange() {
 async function syncCloud() {
     if (!account || !cloud || syncRunning || storageFault) return;
     if (!navigator.onLine) { syncMessage = 'Offline · Änderungen auf Gerät gesichert'; updateCloudUI(); return; }
-    const epoch = accountEpoch, user = account.id;
+    const epoch = accountEpoch, user = account.id, syncingBlock = appBlock;
     const batch = structuredClone(pending);
     syncRunning = true;
     syncMessage = 'Cloud wird abgeglichen …'; updateCloudUI();
@@ -95,7 +96,7 @@ async function syncCloud() {
         const events = [];
         for (let offset = 0; ; offset += 500) {
             const {data, error} = await cloud.from('shredfast_events').select('id,session_key,entry,deleted,created_at')
-                .eq('user_id', user).eq('block_id', 'block2').order('created_at').order('id').range(offset, offset + 499);
+                .eq('user_id', user).eq('block_id', syncingBlock).order('created_at').order('id').range(offset, offset + 499);
             if (error) throw error;
             events.push(...data);
             if (data.length < 500) break;
@@ -131,12 +132,12 @@ function updateCloudUI() {
     document.getElementById('loginForm').hidden = !!account;
     document.getElementById('signedInTools').hidden = !account;
     document.getElementById('cloudUnavailable').hidden = !!cloud;
-    document.getElementById('legacyImport').hidden = !account;
+    document.getElementById('legacyImport').hidden = !account || appBlock !== 'block2';
 }
 
 async function switchAccount(user) {
     if ((user?.id || null) === (account?.id || null)) return;
-    accountEpoch++; account = user; closeModal();
+    accountEpoch++; account = user; closeModal(); closeHybrid();
     loadDeviceState();
     syncMessage = storageFault ? syncMessage : (account ? 'Cloud wird geladen …' : 'Nur auf diesem Gerät gespeichert');
     render(); updateCloudUI();
@@ -184,7 +185,7 @@ document.getElementById('signOut').addEventListener('click', async () => {
 document.getElementById('syncNow').addEventListener('click', () => void syncCloud());
 document.getElementById('legacyImport').addEventListener('click', async () => {
     try {
-        if (!account) return;
+        if (!account || appBlock !== 'block2') return;
         const original = normalizeLogs(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
         const missing = original.filter(row => !logs.some(l => l.key === row.key));
         if (!missing.length) return alert('Keine zusätzlichen lokalen Sessions gefunden. Bestehende Cloud-Einträge bleiben erhalten.');
@@ -197,8 +198,8 @@ document.getElementById('legacyImport').addEventListener('click', async () => {
 document.getElementById('exportBackup').addEventListener('click', async () => {
     let legacyRaw;
     try { legacyRaw = localStorage.getItem(STORAGE_KEY); } catch (_) { legacyRaw = null; }
-    const backup = {format:'shredfast-backup', version:1, block:'block2', exportedAt:new Date().toISOString(), logs, pending, legacyRaw};
-    const file = new File([JSON.stringify(backup, null, 2)], 'ShredFast-Backup-' + new Date().toISOString().slice(0,10) + '.json', {type:'application/json'});
+    const backup = {format:'shredfast-backup', version:2, block:appBlock, exportedAt:new Date().toISOString(), logs, pending, legacyRaw};
+    const file = new File([JSON.stringify(backup, null, 2)], 'ShredFast-' + appBlock + '-Backup-' + new Date().toISOString().slice(0,10) + '.json', {type:'application/json'});
     try {
         if (navigator.canShare?.({files:[file]})) { await navigator.share({files:[file], title:'ShredFast Backup'}); return; }
     } catch (error) { if (error.name === 'AbortError') return; }
@@ -210,7 +211,7 @@ document.getElementById('importBackup').addEventListener('change', async event =
         const file = event.target.files[0]; if (!file) return;
         if (file.size > 2 * 1024 * 1024) throw new Error('Datei ist zu groß.');
         const value = JSON.parse(await file.text());
-        if (!Array.isArray(value) && (value.format !== 'shredfast-backup' || value.version !== 1 || value.block !== 'block2')) throw new Error('Unbekanntes Backupformat.');
+        if (!Array.isArray(value) && (value.format !== 'shredfast-backup' || ![1,2].includes(value.version) || value.block !== appBlock)) throw new Error('Backupformat oder Trainingsblock passt nicht. Für alte Backups oben den bisherigen Block auswählen.');
         const imported = normalizeLogs(Array.isArray(value) ? value : value.logs);
         const missing = imported.filter(row => !logs.some(l => l.key === row.key));
         if (!missing.length) return alert('Keine zusätzlichen Sessions. Bestehende Einträge bleiben erhalten.');

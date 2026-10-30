@@ -9,11 +9,13 @@ const ctx=vm.createContext({console,structuredClone,crypto:{randomUUID},setTimeo
  document:{getElementById:node,querySelectorAll:()=>[],addEventListener(){}},
  alert(){},confirm:()=>true,window:{addEventListener(){},supabase:{createClient:()=>({auth:{onAuthStateChange(){},getSession:async()=>({data:{session:null}})},from:()=>({
  upsert:async rows=>{if(failure)return{error:Error('offline')};for(const r of rows)if(!events.some(e=>e.id===r.id))events.push({...r,created_at:new Date().toISOString()});return{error:null}},
- select(){let user;const q={eq:(k,v)=>{if(k==='user_id')user=v;return q},order:()=>q,range:async(a,b)=>failure?{error:Error('offline')}:{data:events.filter(e=>e.user_id===user).slice(a,b+1)}};return q}
+ select(){let user,block;const q={eq:(k,v)=>{if(k==='user_id')user=v;if(k==='block_id')block=v;return q},order:()=>q,range:async(a,b)=>failure?{error:Error('offline')}:{data:events.filter(e=>e.user_id===user && e.block_id===block).slice(a,b+1)}};return q}
  })})}}});
 const run = code=>vm.runInContext(code,ctx);
 const html=fs.readFileSync(__dirname+'/index.html','utf8');
 run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''));
+run(fs.readFileSync(__dirname+'/hybrid.js','utf8'));
+run("appBlock='block2'");
 run(fs.readFileSync(__dirname+'/cloud.js','utf8'));
 async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await new Promise(r=>setTimeout(r,5))}throw Error('sync never finished')}
 (async()=>{
@@ -35,8 +37,34 @@ async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await
  await run("switchAccount({id:'11111111-1111-4111-8111-111111111111',email:'test@example.com'})");assert.equal(run('logs.length'),1);
  await run('switchAccount(null)');assert.equal(run('logs.length'),1);assert.equal(run('logs[0].rounds'),'6');
  assert.throws(()=>run("normalizeLogs([{key:'bad'}])"));assert.throws(()=>run('normalizeLogs([...logs,...logs])'));
+ // Hybrid has independent caches, event stream, validation and optional run counts.
+ await nodes.get('blockSelect').change({target:{value:'hybrid1'}});
+ assert.equal(run('logs.length'),0);
+ await run("switchAccount({id:'11111111-1111-4111-8111-111111111111',email:'test@example.com'})");
+ assert.equal(run('logs.length'),0,'archive cloud rows not mixed into hybrid');
+ run(`globalThis.hybridA={key:'W1-Mo',week:1,day:'Mo',workoutId:'strength-a',dateISO:'2026-11-02',mode:'short',duration:'20',rpe:'7',sets:[...['squat','floor','rdl','row'].flatMap(exercise=>[1,2].map(set=>({exercise,set,weight:'15',reps:'10',rir:'2'}))),...[1,2].map(set=>({exercise:'deadbug',set,weight:'',reps:'8',rir:''}))]}`);
+ run('logs=[hybridA]');assert.equal(run('storeTrainingChange()'),true);await idle();
+ assert.equal(run('logs[0].sets.length'),10);assert.equal(node('totalDone').textContent,1);
+ assert.throws(()=>run('normalizeLogs([{...hybridA,sets:[]}])'),'empty strength session rejected');
+ assert.throws(()=>run("normalizeLogs([{...hybridA,dateISO:'2026-02-31'}])"),'invalid calendar date rejected');
+ assert.throws(()=>run("normalizeLogs([{...hybridA,sets:hybridA.sets.map(s=>({...s,weight:'25'}))}])"),'equipment limit enforced');
+ run("logs.push({key:'W1-So',week:1,day:'So',workoutId:'easy-run',dateISO:'2026-11-08',mode:'standard',duration:'25',rpe:'4',distance:'3',sets:[]})");
+ assert.equal(run('storeTrainingChange()'),true);await idle();
+ assert.equal(node('totalDone').textContent,1,'optional run not counted as required strength/circuit');
+ assert.equal(run('logs.length'),2);
+ const archiveCount=events.filter(e=>e.block_id==='block2').length;
+ await nodes.get('blockSelect').change({target:{value:'block2'}});
+ assert.equal(run('logs.length'),1);assert.equal(run('logs[0].rounds'),'6');
+ await nodes.get('blockSelect').change({target:{value:'hybrid1'}});
+ assert.equal(run('logs.length'),2);assert.equal(events.filter(e=>e.block_id==='block2').length,archiveCount,'archive unchanged');
+ failure=true;run("logs[0].sets[0].reps='11';storeTrainingChange()");await idle();
+ await nodes.get('blockSelect').change({target:{value:'block2'}});
+ await nodes.get('blockSelect').change({target:{value:'hybrid1'}});
+ assert.equal(run('pending.length'),1,'offline pending survives block switch');
+ failure=false;await run('syncCloud()');assert.equal(run('pending.length'),0);assert.equal(run('logs[0].sets[0].reps'),'11');
+ await nodes.get('blockSelect').change({target:{value:'block2'}});
  // Simulate a storage write failure. Saving must not claim success.
  const old=ctx.localStorage.setItem;ctx.localStorage.setItem=()=>{throw Error('quota')};
  run("logs[0].rounds='99'");assert.equal(run('storeTrainingChange()'),false);ctx.localStorage.setItem=old;
- console.log('PASS: legacy isolation and import; offline queue survives reload; sync retry; original date; tombstone deletion; escaped notes; account isolation; malformed backups; quota failure.');
+ console.log('PASS: legacy isolation and import; offline queue survives reload; sync retry; original date; tombstone deletion; escaped notes; account isolation; malformed backups; quota failure; hybrid per-set validation; block isolation; optional runs; offline block switching.');
 })().catch(e=>{console.error(e);process.exitCode=1});

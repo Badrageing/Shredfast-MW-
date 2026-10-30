@@ -66,3 +66,11 @@ The current browser app does not read HealthKit. A native iOS companion or wrapp
 Recovery suggestions should compare personal multi-day baselines, expose evidence and let the user override. Never increase weights based on watch calories, sleep or heart rate alone. Strength progression continues to depend on logged load, reps, set count, technique and reserve. Real HealthKit authorization and background synchronization need native-device tests; none is implemented or claimed in v11.
 
 Primary Apple reference: https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data
+
+## v12 — Minimal tracking interface
+
+Two primary tabs: Training and Dashboard. Training shows four weekly slots and direct Start/Open actions. Dashboard shows selected-week strength/circuit completions, actual core sets, compact per-exercise progression statuses, and expandable history. Settings, archive selection and workout library sit below the main content.
+
+Workout exercises expand individually; their headers show entered set counts and prescribed targets. Weight, reps and set/pause confirmation remain available, with compact repeat-set buttons. Metadata, technique, reserve and notes are secondary disclosures. Invalid form fields reveal their containing disclosures before browser focus. Persistence, archive records and progression rules are unchanged.
+
+Validation: state/sync regression suite and DOM workflow suite including two-tab navigation, compact weekly list, draft restore, saving, exercise history and progression edge cases. Real iPhone visual/interaction validation is still outstanding.

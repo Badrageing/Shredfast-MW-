@@ -1,22 +1,34 @@
 # ShredFast · strength, endurance and core
 
-Static GitHub Pages app, version 8. Open the existing homescreen app at the same URL.
+Static GitHub Pages app, version 9. Open the existing homescreen app at the same URL.
 
-## Eight-week hybrid block
+## Eight-week hybrid block (version 9)
 
-Monday: full-body A. Wednesday: full-body B. Friday: AMRAP15 Press Up plus core. Sunday: optional 20–30-minute easy jog/run-walk. Strength sessions have a short 20-minute option (2 sets of each lift, one core exercise with 2 sets) and a standard 30–40-minute option (3 sets per lift, both core exercises with 2 sets). Weeks 1 and 5 use 2 lifting sets; week 5 is an easier week. Standard circuit = 15 minutes; short = 12; week 5 easy 10–12. Circuit timing is recorded separately from total session duration. No start date or performed sessions are fabricated.
+Two required full-body sessions plus one rotating circuit per week. An additional slot can record a third strength session (continue A/B alternating) OR an easy run. Actual date is editable. Optional sessions never inflate the 24-session required completion target. Partial/aborted sessions are retained but excluded from completed-session counts.
 
-A: dumbbell squat + floor press; RDL + one-arm row; dead bug and side plank. B: reverse lunge + row; RDL + overhead press; reverse crunch and side plank. Alternate exercises within pairs with rest: 30–45 seconds to switch, 75–90 seconds after the pair, more when needed. Use controlled reps and generally 1–2 reps in reserve, about 3 in week 1 and 3–4 in week 5. Increase load by the smallest available step after completing the upper rep target across planned sets with good technique. Dumbbells are limited to 24 kg each. Unilateral reps and side-plank time are per side; record the weaker side.
+A: squat, floor press, RDL, row; lateral raise, curls, overhead triceps extension; dumbbell drag and reverse crunch. B: reverse lunge, row, RDL, push-ups; shoulder press, hammer curls, close-grip floor press; dumbbell drag and side plank. Main lifts: 2 work sets. For standard 30–40-minute sessions add 1–2 direct shoulder/arm sets and 2 sets of each core move. The 20-minute option keeps main lifts plus one core movement. Week 1 is an introduction; week 5 reduces intensity (3–4 reps in reserve, easier circuit). No completed sessions or weights are fabricated.
 
-The circuit uses the existing n-07 workout (10 press-ups, 10 deadlifts, 10 presses, 10 rows), with a new standardized count of 10 total unilateral rows (5 each side). Old round counts are comparable only if time, load and execution/counting match. Adjustable dumbbell swings and snatches are not prescribed. Optional runs are excluded from the 24-session completion target.
+Circuit rotation (repeat after week 4): AMRAP15 Press Up; AMRAP20 Burpee; 150 Rep Challenge capped at 20 minutes; Time Cap 20 Min. Short versions record their actual time limit. AMRAP logs record full rounds and extra reps. Rep challenges record achieved repetitions and optional elapsed seconds. Compare the same type, load, time and counting convention only. These are existing workout selections with explicit time caps. Original exercise order is displayed. Core after circuits is optional.
 
-Training prescription is a starting plan, adjusted from actual performance and recovery. Core training builds abdominal strength; visible definition also depends on overall body fat and nutrition. Combining endurance and strength is supported by [Schumann et al., systematic review and meta-analysis](https://pubmed.ncbi.nlm.nih.gov/34757594/); the exact weekly split here reflects the user's 20–40-minute constraint.
+Dumbbell drag records the weight of the single dumbbell and total alternating pulls (8 = 4 each side). Anti-rotation and stable pelvis are the execution goal. Bodyweight exercises do not require a load. Overhead triceps extension uses one dumbbell, so that field explicitly says one dumbbell. Other loaded lifts use kg per dumbbell (maximum 24 kg).
+
+Only rows with actual reps/time are saved; prefilled/copied weights alone do not create sets. Completed strength sessions require at least 2 sets of each main lift; incomplete sessions can be saved as partial. Shoulder, arm and core work is recorded only when performed, never assumed. Forms show a previous logged set per exercise (different variants or technique may still limit comparison). Progress shows actual muscle involvement from recorded strength/core sets, including indirect involvement; this is not an effective-volume calculation or a completeness score for circuits.
+
+Local drafts are saved while editing, scoped by account, block and slot. They restore after closing/reloading, but are NOT cloud records and are not counted as training. Explicit Save commits the entry to offline queue/cloud and removes its draft. A 90-second pause timer uses a deadline rather than assuming the app stays foregrounded. There is no service worker or cold offline launch support.
+
+Version 8 hybrid entries, including the former strength-B exercise selection and fixed AMRAP15 logs, are accepted without relabeling or changing recorded exercises. Historical block2 remains separate.
+
+## Tests
+
+`node test-state.cjs` checks cloud queue, retries, archive and hybrid isolation, account changes, validation and legacy compatibility with mocked cloud transport.
+
+`test-ui.cjs` uses `linkedom@0.18.12` as a test-only dependency for actual form DOM, draft restoration, weighted drag, partial saves, circuit metrics, optional selection, timer and account isolation. Install it separately and run `SHREDFAST_TEST_DOM=/absolute/path/to/linkedom node test-ui.cjs`. This is a DOM integration test, not a native iPhone visual or real-login test.
 
 ## Cloud setup for the user
 
 1. Open **Daten & Cloud-Backup**. Export a backup before migration.
 2. Sign in with your existing LifeOS app email and password (not the Supabase dashboard account). Select the previous block in the selector before migrating old logs.
-3. Choose **Bisherige iPhone-Daten übernehmen** on the original iPhone homescreen app. Only missing sessions are added; existing cloud sessions are preserved.
+3. Choose **Bisherige iPhone-Daten übernehmen** on the original iPhone homescreen app. Only missing sessions are added; existing cloud sessions are preserved. The hybrid block also offers explicit local-to-account import for training performed before sign-in.
 4. Wait for **Cloud gesichert · 30 Sessions** before closing.
 
 Authentication is required; training data is never embedded in the public repository. The publishable key is intentionally public and cannot grant access to private rows. No service-role keys are used. Passwords are passed directly to Supabase Auth and are not stored by app code. Auth sessions persist separately from LifeOS.

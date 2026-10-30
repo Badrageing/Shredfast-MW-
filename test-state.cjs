@@ -14,7 +14,7 @@ const ctx=vm.createContext({console,structuredClone,crypto:{randomUUID},setTimeo
 const run = code=>vm.runInContext(code,ctx);
 const html=fs.readFileSync(__dirname+'/index.html','utf8');
 run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''));
-run(fs.readFileSync(__dirname+'/hybrid.js','utf8'));
+run(fs.readFileSync(__dirname+'/training.js','utf8'));
 run("appBlock='block2'");
 run(fs.readFileSync(__dirname+'/cloud.js','utf8'));
 async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await new Promise(r=>setTimeout(r,5))}throw Error('sync never finished')}
@@ -62,6 +62,14 @@ async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await
  await nodes.get('blockSelect').change({target:{value:'hybrid1'}});
  assert.equal(run('pending.length'),1,'offline pending survives block switch');
  failure=false;await run('syncCloud()');assert.equal(run('pending.length'),0);assert.equal(run('logs[0].sets[0].reps'),'11');
+ await nodes.get('blockSelect').change({target:{value:'block2'}});
+ // Existing v8 Friday selections remain valid even when the new rotation differs.
+ await nodes.get('blockSelect').change({target:{value:'hybrid1'}});
+ assert.equal(run("normalizeLogs([{key:'W2-Fr',week:2,day:'Fr',workoutId:'circuit-press',dateISO:'2026-11-13',mode:'standard',duration:'20',rpe:'7',weight:'15',rounds:'5',circuitMinutes:'15',sets:[]}])[0].workoutId"),'circuit-press');
+ assert.equal(run("normalizeLogs([{key:'W1-Mi',week:1,day:'Mi',workoutId:'strength-b',dateISO:'2026-11-04',mode:'short',duration:'20',rpe:'7',sets:['lunge','row','rdl','press'].flatMap(exercise=>[1,2].map(set=>({exercise,set,weight:'15',reps:'10',rir:'2'})))}])[0].sets.length"),8,'v8 strength B retained');
+ assert.throws(()=>run("normalizeLogs([{schemaVersion:9,key:'W1-Mi',week:1,day:'Mi',workoutId:'strength-b',dateISO:'2026-11-04',mode:'short',duration:'20',sets:['lunge','row','rdl','press'].flatMap(exercise=>[1,2].map(set=>({exercise,set,weight:'15',reps:'10',rir:'2'})))}])"),'v9 complete B requires chest main lift');
+ assert.equal(run("normalizeLogs([{schemaVersion:9,key:'W4-So',week:4,day:'So',workoutId:'strength-a',status:'partial',dateISO:'2026-11-29',mode:'short',duration:'10',sets:[{exercise:'curl',set:1,weight:'10',reps:'12',rir:''}]}])[0].status"),'partial','optional actual strength and partial recording');
+ assert.throws(()=>run("normalizeLogs([{key:'W1-Mo',week:1,day:'Mo',workoutId:'easy-run',dateISO:'2026-11-02',mode:'short',duration:'20',sets:[]}])"),'wrong slot rejected');
  await nodes.get('blockSelect').change({target:{value:'block2'}});
  // Simulate a storage write failure. Saving must not claim success.
  const old=ctx.localStorage.setItem;ctx.localStorage.setItem=()=>{throw Error('quota')};

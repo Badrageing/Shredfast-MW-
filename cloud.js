@@ -14,7 +14,7 @@ function normalizeLogs(value) {
     const seen = new Set();
     return value.map(row => {
         const plan = getPlan().find(p => row && row.key === `W${p.week}-${p.day}`);
-        if (!plan || seen.has(row.key) || row.workoutId !== plan.workoutId) throw new Error('Ungültige oder doppelte Session.');
+        if (!plan || seen.has(row.key) || (appBlock === 'block2' && row.workoutId !== plan.workoutId)) throw new Error('Ungültige oder doppelte Session.');
         seen.add(row.key);
         if (appBlock === 'hybrid1') return normalizeHybridEntry(row, plan);
         const clean = {key: row.key, week: plan.week, day: plan.day, workoutId: plan.workoutId};
@@ -132,12 +132,13 @@ function updateCloudUI() {
     document.getElementById('loginForm').hidden = !!account;
     document.getElementById('signedInTools').hidden = !account;
     document.getElementById('cloudUnavailable').hidden = !!cloud;
-    document.getElementById('legacyImport').hidden = !account || appBlock !== 'block2';
+    document.getElementById('legacyImport').hidden = !account;
+    document.getElementById('legacyImport').textContent = appBlock === 'block2' ? 'Bisherige iPhone-Daten übernehmen' : 'Lokale Trainings in dieses Konto übernehmen';
 }
 
 async function switchAccount(user) {
     if ((user?.id || null) === (account?.id || null)) return;
-    accountEpoch++; account = user; closeModal(); closeHybrid();
+    closeHybrid(); closeModal(); accountEpoch++; account = user;
     loadDeviceState();
     syncMessage = storageFault ? syncMessage : (account ? 'Cloud wird geladen …' : 'Nur auf diesem Gerät gespeichert');
     render(); updateCloudUI();
@@ -172,7 +173,7 @@ document.getElementById('loginForm').addEventListener('submit', async event => {
         document.getElementById('cloudPassword').value = '';
         if (error) throw error;
         result.textContent = ''; await switchAccount(data.user);
-    } catch (error) { result.textContent = 'Anmeldung fehlgeschlagen. Bitte bestehende Supabase-/LifeOS-Zugangsdaten prüfen.'; }
+    } catch (error) { result.textContent = 'Anmeldung fehlgeschlagen. Bitte bestehende LifeOS-App-Zugangsdaten prüfen.'; }
     finally { button.disabled = false; }
 });
 
@@ -185,11 +186,11 @@ document.getElementById('signOut').addEventListener('click', async () => {
 document.getElementById('syncNow').addEventListener('click', () => void syncCloud());
 document.getElementById('legacyImport').addEventListener('click', async () => {
     try {
-        if (!account || appBlock !== 'block2') return;
-        const original = normalizeLogs(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+        if (!account) return;
+        const original = normalizeLogs(JSON.parse(localStorage.getItem(localLogsKey()) || '[]'));
         const missing = original.filter(row => !logs.some(l => l.key === row.key));
         if (!missing.length) return alert('Keine zusätzlichen lokalen Sessions gefunden. Bestehende Cloud-Einträge bleiben erhalten.');
-        if (!confirm(`${missing.length} bisherige iPhone-Sessions in das angezeigte Cloud-Konto übernehmen? Bestehende Cloud-Sessions werden nicht überschrieben.`)) return;
+        if (!confirm(`${missing.length} lokale Sessions dieses Blocks in das angezeigte Cloud-Konto übernehmen? Bestehende Cloud-Sessions werden nicht überschrieben.`)) return;
         logs = [...logs, ...missing]; if (!storeTrainingChange()) logs = structuredClone(savedLogs);
         render();
     } catch (error) { alert('Übernahme fehlgeschlagen: ' + error.message); }

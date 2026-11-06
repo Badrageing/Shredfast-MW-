@@ -82,6 +82,16 @@ async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await
  run('deleteLog(freeKeys[0])');await idle();await run('syncCloud()');assert.equal(run('logs.filter(l=>l.key.startsWith("F-")).length'),33);
  assert.throws(()=>run("normalizeLogs([{...hybridA,key:'F-not-a-uuid'}])"));
  await nodes.get('blockSelect').change({target:{value:'block2'}});
+
+ // New result formats: no invented finish time and no out-of-range ladder steps.
+ await nodes.get('blockSelect').change({target:{value:'hybrid1'}});
+ run("globalThis.timed={key:'F-'+crypto.randomUUID(),schemaVersion:9,workoutId:'library-b1-06',dateISO:'2026-11-06',mode:'standard',duration:'15',weight:'15',circuitMinutes:'30',elapsedSeconds:'600',sets:[]}");
+ assert.equal(run('normalizeLogs([timed])[0].elapsedSeconds'),'600','finish before budget is valid');
+ assert.throws(()=>run("normalizeLogs([{...timed,elapsedSeconds:''}])"),'completed for-time requires finish time');
+ assert.equal(run("normalizeLogs([{...timed,status:'partial',elapsedSeconds:''}])[0].status"),'partial');
+ assert.throws(()=>run("normalizeLogs([{...timed,duration:'5'}])"),'elapsed cannot exceed total duration');
+ assert.throws(()=>run("normalizeLogs([{...timed,workoutId:'library-b1-08',rounds:'11'}])"),'ladder ends at step 10');
+ await nodes.get('blockSelect').change({target:{value:'block2'}});
  // Simulate a storage write failure. Saving must not claim success.
  const old=ctx.localStorage.setItem;ctx.localStorage.setItem=()=>{throw Error('quota')};
  run("logs[0].rounds='99'");assert.equal(run('storeTrainingChange()'),false);ctx.localStorage.setItem=old;

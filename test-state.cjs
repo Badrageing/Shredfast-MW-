@@ -14,7 +14,7 @@ const ctx=vm.createContext({console,structuredClone,crypto:{randomUUID},setTimeo
 const run = code=>vm.runInContext(code,ctx);
 const html=fs.readFileSync(__dirname+'/index.html','utf8');
 run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''));
-run(fs.readFileSync(__dirname+'/training.js','utf8'));
+run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/catalog.js','utf8'));
 run("appBlock='block2'");
 run(fs.readFileSync(__dirname+'/cloud.js','utf8'));
 async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await new Promise(r=>setTimeout(r,5))}throw Error('sync never finished')}

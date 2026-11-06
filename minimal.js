@@ -71,7 +71,7 @@ const freeOpen=openHybrid;
 openHybrid=function(key,id){
  freeOpen(key,id);if(!hybridEditing)return;
  const fields=document.getElementById('hybridFields'),w=HYBRID_WORKOUTS[hybridEditing.workoutId],guide=document.createElement('section');guide.className='workout-guide';
- guide.innerHTML=w.kind==='circuit'?`<h3>${w.metric==='rounds'?'So viele Runden wie möglich':'Reihenfolge abarbeiten'}</h3><p>${w.defaultMinutes} Minuten ${w.metric==='rounds'?'AMRAP':'Zeitlimit'} · Gewicht passend zur schwierigsten Übung.</p><ol>${CIRCUIT_STEPS[hybridEditing.workoutId].map(step=>`<li>${step}</li>`).join('')}</ol><p>${w.metric==='rounds'?'Nach der letzten Übung wieder von vorne. Volle Runden und zusätzliche Wiederholungen erfassen.':'Bei Zeitlimit stoppen. Erreichte Wiederholungen und optional die benötigte Zeit eintragen.'} Einarmige Übungen und Kombinationen immer gleich zählen. Core danach ist freiwillig.</p>`:`<p>${escapeHTML(w.pairs)}</p>`;
+ guide.innerHTML=w.kind==='circuit'?`<h3>${w.metric==='rounds'?'So viele Runden wie möglich':w.metric==='ladder'?'Leiter: Stufe für Stufe':'Reihenfolge abarbeiten'}</h3><p>${w.defaultMinutes} Minuten ${w.metric==='rounds'?'AMRAP':w.budgetOnly?'frei gewähltes Zeitbudget':'Zeitlimit'} · Gewicht passend zur schwierigsten Übung.</p><ol>${(w.steps||CIRCUIT_STEPS[hybridEditing.workoutId]||[]).map(step=>`<li>${escapeHTML(step)}</li>`).join('')}</ol><p>${w.metric==='rounds'?'Nach der letzten Übung wieder von vorne. Volle Runden und zusätzliche Wiederholungen erfassen.':w.metric==='time'?'Auf Zeit abarbeiten. Fertig? Benötigte Sekunden erfassen. Beim Zeitbudget oder vorzeitigem Ende verkürzt speichern.':w.metric==='ladder'?'Alle Übungen mit 1 Wiederholung, dann 2 bis maximal 10. Vollständige Stufen zählen.':'Bei Zeitlimit stoppen. Erreichte Wiederholungen und optional die benötigte Zeit eintragen.'} Einarmige Übungen und Kombinationen immer gleich zählen. Core danach ist freiwillig.</p>`:`<p>${escapeHTML(w.pairs)}</p>`;
  fields.prepend(guide);
  if(isFreeSessionKey(key)&&!logs.some(l=>l.key===key)){
   const discard=document.createElement('button');discard.type='button';discard.className='secondary discard-draft';discard.textContent='Entwurf verwerfen';discard.onclick=()=>{
@@ -81,3 +81,50 @@ openHybrid=function(key,id){
   };fields.append(discard);
  }
 };
+
+// Deliberately simple, visible decision rules. No inferred HealthKit or recovery score.
+const formKey=()=>`sf_today_form_v1_${account?.id||'local'}`;
+function todayForm(now=new Date()){
+ try{const data=JSON.parse(localStorage.getItem(formKey())||'null');return data?.date===localDate(now)&&['fit','tired','rest'].includes(data.form)?data.form:'unknown';}catch(_){return 'unknown';}
+}
+function nextTraining(now=new Date(),form=todayForm(now)){
+ const today=localDate(now),dated=logs.filter(l=>l.dateISO<=today).sort(newestTraining);
+ const last=dated.find(l=>completed(l)&&HYBRID_WORKOUTS[l.workoutId]?.kind==='strength');
+ const next=last?.workoutId==='strength-a'?'strength-b':'strength-a';
+ const days=l=>Math.round((Date.parse(today+'T12:00:00Z')-Date.parse(l.dateISO+'T12:00:00Z'))/86400000);
+ const recent=dated.filter(l=>days(l)<7&&completed(l)),strength=recent.filter(l=>HYBRID_WORKOUTS[l.workoutId]?.kind==='strength'),circuits=recent.filter(l=>HYBRID_WORKOUTS[l.workoutId]?.kind==='circuit');
+ if(form==='rest')return {id:null,title:'Heute Erholung einplanen',reason:'Du fühlst dich stark erschöpft oder angeschlagen. Pausiere das intensive Training; entscheide nach deinem Befinden über leichte Bewegung.',basis:'Deine heutige Angabe'};
+ if(form==='tired')return {id:null,title:'Heute leichter angehen',reason:'Du meldest Müdigkeit oder deutlichen Muskelkater. Locker bewegen oder pausieren; keine Gewichtssteigerung aus der Empfehlung ableiten.',basis:'Deine heutige Angabe'};
+ const latestLoad=dated.find(l=>['strength','circuit'].includes(HYBRID_WORKOUTS[l.workoutId]?.kind)&&(l.sets.length>0||HYBRID_WORKOUTS[l.workoutId]?.kind==='circuit'));
+ if(latestLoad&&days(latestLoad)<2)return {id:null,title:'Erholung vor der nächsten harten Einheit',reason:`Die letzte Kraft-/Zirkeleinheit war ${days(latestLoad)===0?'heute':'gestern'}. Vorschlag: heute locker bewegen oder pausieren. Das ist eine vorsichtige Kalenderregel, keine Messung deiner Erholung.`,basis:'Zeitpunkt deines letzten Eintrags'};
+ if(strength.length>=3&&circuits.length>=1)return {id:null,title:'Dein Wochenumfang ist erreicht',reason:'Mindestens drei Krafttage und ein Zirkel in den letzten sieben Tagen. Ein lockerer Tag ist jetzt der Vorschlag.',basis:'Erfasste Einheiten der letzten 7 Tage'};
+ if(strength.length>=2&&!circuits.length){
+  const previous=dated.find(l=>HYBRID_WORKOUTS[l.workoutId]?.kind==='circuit'&&LIBRARY_IDS.includes(l.workoutId)&&Number(l.circuitMinutes)<=20);
+  const id=previous?.workoutId||'circuit-press';
+  const evidence=circuitProgress(id,today);
+  return {id,title:HYBRID_WORKOUTS[id].name,reason:(previous?'Zwei Krafttage sind erfasst. Wiederhole diesen kurzen Zirkel für einen vergleichbaren Verlauf; gleiche Dauer, Last und Zählweise beibehalten.':'Zwei Krafttage sind erfasst. Ein kurzer Zirkel ergänzt die Ausdauer. Freie Auswahl bleibt möglich.')+' '+evidence,basis:'Trainingsverteilung · bisheriger Zirkel'};
+ }
+ const main=HYBRID_WORKOUTS[next].main,progress=main.map(id=>exerciseProgress(id,'',today));
+ const increases=progress.filter(p=>p.state==='increase').length,declines=progress.filter(p=>p.trend.startsWith('-')).length;
+ return {id:next,title:HYBRID_WORKOUTS[next].name,reason:`${last?'A/B im Wechsel nach deinem letzten abgeschlossenen Krafttraining.':'Beginne mit Ganzkörper A; danach A/B abwechseln.'} ${declines>=2?'Mehrere vergleichbare Übungen waren zuletzt schwächer: Last zunächst halten und Tagesform prüfen.':increases?`${increases} Hauptübung(en) erfüllen die Steigerungsregel. Prüfe die jeweilige Gewichtsempfehlung und Technik.`:'Gewichte je Übung aus deinem letzten Training übernehmen und im Zielbereich steigern.'}`,basis:form==='unknown'?'Trainingsverlauf · Satzleistung · Tagesform unbekannt':'Trainingsverlauf · Satzleistung · deine heutige Angabe'};
+}
+renderHybridPlan=function(){
+ const form=todayForm(),rec=nextTraining(),drafts=workoutDrafts();
+ const row=id=>{const w=HYBRID_WORKOUTS[id];return `<article class="session-line" data-workout="${id}"><div><span class="session-type">${w.kind==='strength'?'Kraft':w.kind==='circuit'?'ShredFast':'Ausdauer'}${CIRCUIT_ROTATION.includes(id)?' · Rotationsempfehlung':''}</span><h3>${w.name}</h3><p>${w.kind==='strength'?'3 Sätze groß · 2 Sätze klein':w.kind==='circuit'?`${w.defaultMinutes} Min ${w.budgetOnly?'Zeitbudget':w.metric==='rounds'?'AMRAP':'Zeitlimit'}`:'20–30 Min locker'}</p></div><button onclick="startWorkout('${id}')">${drafts.some(x=>x.id===id)?'Fortsetzen':'Start'}</button></article>`;};
+ document.getElementById('content').innerHTML=`<section class="next-training"><span class="session-type">Vorschlag für heute</span><h2>${rec.title}</h2><p>${escapeHTML(rec.reason)}</p><small>${escapeHTML(rec.basis)}</small>${rec.id?`<button onclick="startWorkout('${rec.id}')">${drafts.some(x=>x.id===rec.id)?'Fortsetzen':'Workout öffnen'}</button>`:''}</section>
+ <details class="minimal-details"><summary>Heutige Form · ${form==='unknown'?'noch offen':form==='fit'?'fit':form==='tired'?'müde / Muskelkater':'erschöpft / angeschlagen'}</summary><label for="todayForm">Wie fühlst du dich heute?</label><select id="todayForm" class="pro-search"><option value="unknown" ${form==='unknown'?'selected':''}>Keine Angabe</option><option value="fit" ${form==='fit'?'selected':''}>Fit / normal erholt</option><option value="tired" ${form==='tired'?'selected':''}>Müde / deutlicher Muskelkater</option><option value="rest" ${form==='rest'?'selected':''}>Stark erschöpft / angeschlagen</option></select><p>Freiwillige Selbsteinschätzung, nur auf diesem Gerät für dieses Konto und diesen Tag gespeichert. Apple Health ist nicht verbunden. Die Empfehlung ist eine einfache Trainingsregel, kein gemessener Erholungswert.</p></details>
+ <div class="minimal-title"><h2>Freie Auswahl</h2></div>${['strength-a','strength-b','easy-run'].map(row).join('')}
+ <details class="minimal-details circuit-library"><summary>Alle ShredFast-Workouts (${LIBRARY_IDS.length})</summary><input id="circuitSearch" class="pro-search" type="search" placeholder="Zirkel suchen …" aria-label="ShredFast-Workouts suchen">${LIBRARY_IDS.map(row).join('')}<p id="noCircuits" hidden>Kein passender Zirkel gefunden.</p></details>`;
+ document.getElementById('todayForm').onchange=event=>{
+  try{localStorage.setItem(formKey(),JSON.stringify({date:localDate(new Date()),form:event.target.value}));}catch(_){return alert('Tagesform konnte nicht gespeichert werden.');}renderHybridPlan();
+ };
+ document.getElementById('circuitSearch').oninput=event=>{
+  let visible=0;document.querySelectorAll('.circuit-library .session-line').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('de').includes(event.target.value.toLocaleLowerCase('de'));if(!row.hidden)visible++;});document.getElementById('noCircuits').hidden=!!visible;
+ };
+};
+// A subjective low-readiness entry suppresses positive load prompts for today only.
+const formAwareOpen=openHybrid;
+openHybrid=function(key,id){formAwareOpen(key,id);if(!hybridEditing)return;if(document.getElementById('hDate').value===localDate(new Date())&&['tired','rest'].includes(todayForm()))document.querySelectorAll('#hybridFields .progress-advice').forEach(p=>p.textContent='Heute meldest du eingeschränkte Erholung. Keine Gewichtssteigerung; leichter trainieren oder pausieren.');};
+
+const dashboardWithHistory=renderHybridProgress;
+renderHybridProgress=function(){dashboardWithHistory();const ids=[...new Set(logs.filter(l=>HYBRID_WORKOUTS[l.workoutId]?.kind==='circuit').map(l=>l.workoutId))];if(!ids.length)return;const panel=document.createElement('details');panel.className='minimal-details';panel.innerHTML='<summary>Zirkel-Fortschritt</summary>'+ids.map(id=>`<p><strong>${HYBRID_WORKOUTS[id].name}</strong><br>${escapeHTML(circuitProgress(id,localDate(new Date())))}</p>`).join('');document.getElementById('content').append(panel);};

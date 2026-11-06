@@ -13,10 +13,10 @@ function fill(id,value){assert(el(id),'Missing input '+id);el(id).value=String(v
 function change(id,value){el(id).value=value;el(id).dispatchEvent(new window.Event('change',{bubbles:true}));}
 function submit(){el('hybridForm').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));}
 run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''));
-run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));run(fs.readFileSync(__dirname+'/pro.js','utf8'));run(fs.readFileSync(__dirname+'/minimal.js','utf8'));
+run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/catalog.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));run(fs.readFileSync(__dirname+'/pro.js','utf8'));run(fs.readFileSync(__dirname+'/minimal.js','utf8'));
 (async()=>{
  run('init()');await run('initCloud()');
- assert(el('content').textContent.includes('AMRAP15 Press Up'));assert.equal(document.querySelectorAll('.nav .nav-btn').length,2);assert.equal(document.querySelectorAll('.session-line').length,7);assert(!el('content').textContent.includes('Gewichtsempfehlung')); 
+ assert(el('content').textContent.includes('AMRAP15 Press Up'));assert.equal(document.querySelectorAll('.nav .nav-btn').length,2);assert.equal(document.querySelectorAll('.session-line').length,30);assert(!el('content').textContent.includes('Gewichtsempfehlung')); 
  run("openHybrid('W1-Mo')");
  assert(el('hybridFields').textContent.includes('Bizeps-Curls'));assert(el('hybridFields').textContent.includes('Plank Dumbbell Drag'));
  for(const ex of ['squat','floor','rdl','row'])for(const n of [1,2]){fill(`s-${ex}-${n}-weight`,15);fill(`s-${ex}-${n}-reps`,10);}
@@ -77,5 +77,31 @@ run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirn
   if(el('hRounds'))fill('hRounds',5);else fill('hReps',100);submit();
  }
  assert.equal(run('logs.length'),5);assert.deepEqual(alerts,[]);
+
+ // Every source workout can be opened, described, logged and normalized.
+ assert.equal(run('LIBRARY_IDS.length'),27);assert.equal(run('new Set(LIBRARY_IDS).size'),27);
+ for(const id of run('JSON.parse(JSON.stringify(LIBRARY_IDS))')){
+  const w=run(`JSON.parse(JSON.stringify(HYBRID_WORKOUTS['${id}']))`);run(`startWorkout('${id}')`);
+  assert(document.querySelectorAll('.workout-guide li').length>0,id+' instructions');
+  fill('hWeight',15);fill('hDuration',w.defaultMinutes);
+  if(el('hRounds'))fill('hRounds',w.metric==='ladder'?5:6);
+  if(el('hReps'))fill('hReps',100);
+  if(el('hElapsedSeconds'))fill('hElapsedSeconds',600);
+  const oldLength=run('logs.length');submit();assert.equal(run('logs.length'),oldLength+1,id+' saved');
+ }
+ assert.deepEqual(alerts,[]);run('loadDeviceState()');assert.equal(run('logs.filter(l=>HYBRID_WORKOUTS[l.workoutId].kind==="circuit").length'),31);
+ // Recommendation rules, date boundary and no made-up health data.
+ run('logs=[]');assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'unknown').id"),'strength-a');
+ run(`logs=[{key:'W1-Mo',workoutId:'strength-a',dateISO:'2026-11-02',date:'2.11.2026',sets:[]}]`);
+ assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),'strength-b');
+ run("logs[0].dateISO='2026-11-05';logs[0].sets=[{exercise:'squat'}]");assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),null);
+ run("logs[0].dateISO='2026-11-07'");assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),'strength-a');
+ run(`logs=['2026-11-02','2026-11-04'].map((dateISO,i)=>({key:'W'+(i+1)+'-Mo',workoutId:i?'strength-b':'strength-a',dateISO,sets:[]}))`);
+ assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),'circuit-press');
+ assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'tired').id"),null);
+ assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'rest').id"),null);
+ run("logs=[];currentTab='plan';render()");change('todayForm','tired');assert(el('content').textContent.includes('Heute leichter angehen'));
+ run("startWorkout('strength-a')");assert(document.querySelector('.progress-advice').textContent.includes('Keine Gewichtssteigerung'));
+ storage.set(run('formKey()'),JSON.stringify({date:'2000-01-01',form:'fit'}));assert.equal(run('todayForm()'),'unknown');
  console.log('PASS: DOM forms; rotation; arms/chest/core fields; actual sets only; weighted drag; draft recovery; completed/partial counts; reps/time circuit; optional run/strength selection; timer; draft account isolation.');
 })().catch(e=>{console.error(e,alerts);process.exitCode=1});

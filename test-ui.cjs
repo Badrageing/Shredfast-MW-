@@ -16,7 +16,7 @@ run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^
 run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));run(fs.readFileSync(__dirname+'/pro.js','utf8'));run(fs.readFileSync(__dirname+'/minimal.js','utf8'));
 (async()=>{
  run('init()');await run('initCloud()');
- assert(el('content').textContent.includes('AMRAP15 Press Up'));assert.equal(document.querySelectorAll('.nav .nav-btn').length,2);assert.equal(document.querySelectorAll('.session-line').length,4);assert(!el('content').textContent.includes('Gewichtsempfehlung')); 
+ assert(el('content').textContent.includes('AMRAP15 Press Up'));assert.equal(document.querySelectorAll('.nav .nav-btn').length,2);assert.equal(document.querySelectorAll('.session-line').length,7);assert(!el('content').textContent.includes('Gewichtsempfehlung')); 
  run("openHybrid('W1-Mo')");
  assert(el('hybridFields').textContent.includes('Bizeps-Curls'));assert(el('hybridFields').textContent.includes('Plank Dumbbell Drag'));
  for(const ex of ['squat','floor','rdl','row'])for(const n of [1,2]){fill(`s-${ex}-${n}-weight`,15);fill(`s-${ex}-${n}-reps`,10);}
@@ -54,5 +54,28 @@ run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirn
  assert.equal(run("plannedSets('squat')"),3);assert.equal(run("plannedSets('press')"),2);
  run("logs=[];openHybrid('W1-Mo')");fill('s-squat-1-weight',12);fill('s-squat-1-reps',9);
  document.querySelectorAll('[data-exercise=squat].set-row')[1].querySelector('.repeat-set').click();assert.equal(el('s-squat-2-reps').value,'9');assert.equal(el('s-squat-2-weight').value,'12');assert.equal(el('s-squat-3-reps').value,'');
+
+ // Free sessions: repeated A on the same date never overwrites an earlier session.
+ await run('switchAccount(null)');run("logs=[];savedLogs=[];pending=[];storageFault=false");
+ run("startWorkout('strength-a')");const freeA=run('hybridEditing.key');assert(freeA.startsWith('F-'));
+ fill('s-squat-1-weight',14);fill('s-squat-1-reps',8);run('closeHybrid();render()');
+ assert(el('content').textContent.includes('Fortsetzen'));
+ run("startWorkout('strength-a')");assert.equal(run('hybridEditing.key'),freeA);assert.equal(el('s-squat-1-reps').value,'8');
+ for(const ex of ['squat','floor','rdl','row'])for(const n of [1,2,3]){fill(`s-${ex}-${n}-weight`,14);fill(`s-${ex}-${n}-reps`,8);}
+ fill('hDate','2026-10-01');fill('hDuration',35);submit();assert.equal(run('logs.length'),1);
+ run("startWorkout('strength-a')");const freeA2=run('hybridEditing.key');assert.notEqual(freeA2,freeA);assert.equal(el('s-squat-1-reps').value,'');
+ for(const ex of ['squat','floor','rdl','row'])for(const n of [1,2,3]){fill(`s-${ex}-${n}-weight`,14);fill(`s-${ex}-${n}-reps`,9);}
+ fill('hDate','2026-10-01');fill('hDuration',35);submit();assert.equal(run('logs.length'),2);
+ run('loadDeviceState()');assert.equal(run('logs.length'),2);run("currentTab='progress';render()");
+ assert(el('content').textContent.includes('1.10.2026'),'history retains old sessions outside last seven days');
+ assert(!document.querySelector('.week-tabs'));
+ run(`openHybrid('${freeA}')`);fill('s-squat-1-reps',10);submit();assert.equal(run('logs.length'),2,'edit retains session identity');
+ run(`deleteLog('${freeA2}')`);assert.equal(run('logs.length'),1);
+ for(const id of ['circuit-press','circuit-burpee','circuit-150','circuit-cap20']){
+  run(`startWorkout('${id}')`);assert(document.querySelector('.workout-guide ol'));assert(document.querySelectorAll('.workout-guide li').length>=4);
+  const duration=id==='circuit-press'?15:20;fill('hWeight',15);fill('hDuration',duration);
+  if(el('hRounds'))fill('hRounds',5);else fill('hReps',100);submit();
+ }
+ assert.equal(run('logs.length'),5);assert.deepEqual(alerts,[]);
  console.log('PASS: DOM forms; rotation; arms/chest/core fields; actual sets only; weighted drag; draft recovery; completed/partial counts; reps/time circuit; optional run/strength selection; timer; draft account isolation.');
 })().catch(e=>{console.error(e,alerts);process.exitCode=1});

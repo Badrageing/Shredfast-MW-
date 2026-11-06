@@ -46,7 +46,7 @@ function exerciseProgress(id,excludeKey='',beforeDate='9999-12-31'){
  const ex=HYBRID_EXERCISES[id],n=plannedSets(id),upper=Number(ex.target.match(/–(\d+)/)?.[1]);
  const sessions=logs.filter(l=>l.key!==excludeKey&&l.dateISO<=beforeDate&&HYBRID_WORKOUTS[l.workoutId]?.kind==='strength')
   .map(l=>({log:l,sets:l.sets.filter(s=>s.exercise===id).sort((a,b)=>a.set-b.set)})).filter(x=>x.sets.length)
-  .sort((a,b)=>b.log.dateISO.localeCompare(a.log.dateISO)||planPosition(b.log)-planPosition(a.log));
+  .sort((a,b)=>newestTraining(a.log,b.log)||planPosition(b.log)-planPosition(a.log));
  const latest=sessions[0],previous=sessions.find((x,i)=>i>0&&x.log.dateISO<latest.log.dateISO);
  if(!latest)return {state:'empty',text:'Nach deinem ersten Training erscheint hier die Empfehlung.',trend:'Noch keine Daten'};
  const uniform=x=>x.sets.every(s=>Number(s.weight)===Number(x.sets[0].weight));
@@ -82,7 +82,7 @@ openHybrid=function(key,chosenId){
  openV10(key,chosenId);if(!hybridEditing)return;
  document.querySelectorAll('#hybridFields fieldset').forEach(fieldset=>{
   const row=fieldset.querySelector('.set-row');if(!row)return;const id=row.dataset.exercise;
-  const recommendation=document.createElement('p');recommendation.className='progress-advice';recommendation.textContent=hybridEditing.week===5?'Entlastungswoche: leichter trainieren, keine automatische Laststeigerung.':exerciseProgress(id,key,document.getElementById('hDate').value).text;fieldset.querySelector('legend').after(recommendation);
+  const recommendation=document.createElement('p');recommendation.className='progress-advice';recommendation.textContent=(!isFreeSessionKey(key)&&hybridEditing.week===5)?'Entlastungswoche: leichter trainieren, keine automatische Laststeigerung.':exerciseProgress(id,key,document.getElementById('hDate').value).text;fieldset.querySelector('legend').after(recommendation);
   const reserveToggle=document.createElement('button');reserveToggle.type='button';reserveToggle.className='secondary';reserveToggle.textContent='Reserve einblenden (für Steigerung)';
   const reserves=[...fieldset.querySelectorAll('[data-field=rir]')];reserves.forEach(input=>{input.closest('label').hidden=input.value==='';});
   if(reserves.length){reserveToggle.onclick=()=>{reserves.forEach(input=>input.closest('label').hidden=false);reserveToggle.hidden=true;};fieldset.append(reserveToggle);}

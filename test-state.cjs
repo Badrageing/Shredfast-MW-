@@ -71,6 +71,17 @@ async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await
  assert.equal(run("normalizeLogs([{schemaVersion:9,key:'W4-So',week:4,day:'So',workoutId:'strength-a',status:'partial',dateISO:'2026-11-29',mode:'short',duration:'10',sets:[{exercise:'curl',set:1,weight:'10',reps:'12',rir:''}]}])[0].status"),'partial','optional actual strength and partial recording');
  assert.throws(()=>run("normalizeLogs([{key:'W1-Mo',week:1,day:'Mo',workoutId:'easy-run',dateISO:'2026-11-02',mode:'short',duration:'20',sets:[]}])"),'wrong slot rejected');
  await nodes.get('blockSelect').change({target:{value:'block2'}});
+
+ // Free-session sync supports more than the former 32 slots, retries and tombstones.
+ await nodes.get('blockSelect').change({target:{value:'hybrid1'}});
+ run("globalThis.freeKeys=Array.from({length:34},()=> 'F-'+crypto.randomUUID());logs=[...logs,...freeKeys.map(key=>({...hybridA,key,schemaVersion:9,recordedAt:'2026-11-06T12:00:00.000Z'}))]");
+ assert.equal(run('storeTrainingChange()'),true);await idle();
+ assert.equal(run('logs.filter(l=>l.key.startsWith("F-")).length'),34);
+ run('loadDeviceState()');assert.equal(run('logs.filter(l=>l.key.startsWith("F-")).length'),34);
+ const eventCount=events.length;await run('syncCloud()');assert.equal(events.length,eventCount);
+ run('deleteLog(freeKeys[0])');await idle();await run('syncCloud()');assert.equal(run('logs.filter(l=>l.key.startsWith("F-")).length'),33);
+ assert.throws(()=>run("normalizeLogs([{...hybridA,key:'F-not-a-uuid'}])"));
+ await nodes.get('blockSelect').change({target:{value:'block2'}});
  // Simulate a storage write failure. Saving must not claim success.
  const old=ctx.localStorage.setItem;ctx.localStorage.setItem=()=>{throw Error('quota')};
  run("logs[0].rounds='99'");assert.equal(run('storeTrainingChange()'),false);ctx.localStorage.setItem=old;

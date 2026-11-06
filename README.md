@@ -74,3 +74,13 @@ Two primary tabs: Training and Dashboard. Training shows four weekly slots and d
 Workout exercises expand individually; their headers show entered set counts and prescribed targets. Weight, reps and set/pause confirmation remain available, with compact repeat-set buttons. Metadata, technique, reserve and notes are secondary disclosures. Invalid form fields reveal their containing disclosures before browser focus. Persistence, archive records and progression rules are unchanged.
 
 Validation: state/sync regression suite and DOM workflow suite including two-tab navigation, compact weekly list, draft restore, saving, exercise history and progression edge cases. Real iPhone visual/interaction validation is still outstanding.
+
+## v13 — Calendar-independent training
+
+The main screen starts A, B, one of the four configured ShredFast circuits or an easy run on any date. Each new session uses a UUID-based `F-` key; repeated A/B sessions and multiple sessions on one day have separate identities. Old W1–W8 slots remain readable and editable, and the original 30-session archive stays separate. Free sessions share the existing hybrid cache and append-only private cloud stream. The hybrid import limit is now 10,000 entries rather than 32 slots. Clients should reload to v13 before syncing free sessions; pre-v13 clients cannot understand their keys.
+
+The dashboard counts the last seven local calendar dates, excluding future dates, while all-time history and exercise progression continue to use the full record. Recommendations alternate from the latest completed strength session. New records preserve an initial recordedAt timestamp as a same-date ordering tiebreaker. Starting an unfinished workout resumes its per-account local draft; an explicit discard action removes that draft. Saving clears it. Drafts are local, not cloud-synced.
+
+Circuit instructions show ordered exercises, counts and format before result entry. Strength exercises show their prescribed sets and rep range; dates stay visible. Four circuits are the agreed rotation; the older workout library remains accessible under settings.
+
+Validation: storage/sync regressions plus >32 free entries, repeated same-day A, draft continuation, edits, deletion/tombstones, retry deduplication, and all four circuit forms. The hosted database constraint was checked on a temporary rollback-only test table with two free keys, one legacy key and an invalid-key rejection. Production user rows were not modified by testing.

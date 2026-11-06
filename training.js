@@ -34,12 +34,14 @@ const HYBRID_PLAN=Array.from({length:8},(_,i)=>i+1).flatMap(week=>[
  {week,day:'Mo',workoutId:'strength-a'},{week,day:'Mi',workoutId:'strength-b'},
  {week,day:'Fr',workoutId:CIRCUIT_ROTATION[(week-1)%4]}, {week,day:'So',workoutId:'optional',optional:true}
 ]);
+const isFreeSessionKey=key=>typeof key==='string'&&/^F-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(key);
+const newestTraining=(a,b)=>String(b.dateISO).localeCompare(String(a.dateISO))||String(b.recordedAt||'').localeCompare(String(a.recordedAt||''));
 const getPlan=()=>appBlock==='block2'?BLOCK2_PLAN:HYBRID_PLAN;
 const localLogsKey=()=>appBlock==='block2'?STORAGE_KEY:'sf_hybrid1_logs';
 const completed=l=>(l.status||'completed')==='completed';
 const allExerciseIds=w=>[...w.ids,...(w.legacyIds||[])];
 const planPosition=p=>HYBRID_PLAN.findIndex(s=>s.week===p.week&&s.day===p.day);
-function allowedWorkouts(plan){return plan.day==='So'?['strength-a','strength-b','easy-run']:plan.day==='Fr'?CIRCUIT_ROTATION:['strength-a','strength-b'];}
+function allowedWorkouts(plan){if(plan.free)return Object.keys(HYBRID_WORKOUTS).filter(id=>HYBRID_WORKOUTS[id].kind!=='choice');return plan.day==='So'?['strength-a','strength-b','easy-run']:plan.day==='Fr'?CIRCUIT_ROTATION:['strength-a','strength-b'];}
 function suggestedWorkout(plan){
  if(plan.day==='Fr')return plan.workoutId;
  const previous=logs.filter(l=>HYBRID_WORKOUTS[l.workoutId]?.kind==='strength'&&planPosition(l)<planPosition(plan)).sort((a,b)=>planPosition(b)-planPosition(a))[0];
@@ -48,6 +50,7 @@ function suggestedWorkout(plan){
 function normalizeHybridEntry(row,plan){
  if(!allowedWorkouts(plan).includes(row.workoutId))throw Error('Training passt nicht zu diesem Termin.');
  const w=HYBRID_WORKOUTS[row.workoutId],clean={key:row.key,week:plan.week,day:plan.day,workoutId:row.workoutId};
+ if(row.recordedAt!=null){if(typeof row.recordedAt!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(row.recordedAt)||!Number.isFinite(Date.parse(row.recordedAt)))throw Error('Ungültiger Erfassungszeitpunkt.');clean.recordedAt=new Date(row.recordedAt).toISOString();}
  for(const field of ['date','dateISO','mode','duration','rpe','note','weight','rounds','circuitMinutes','distance','reps','elapsedSeconds','extraReps']){
   if(row[field]!=null&&!['string','number'].includes(typeof row[field]))throw Error('Ungültiges Datenfeld.');
   clean[field]=String(row[field]??'');if(clean[field].length>(field==='note'?2000:100))throw Error('Datenfeld zu lang.');
@@ -132,9 +135,9 @@ function saveHybridDraft(){
  try{localStorage.setItem(draftKey(hybridEditing.key),JSON.stringify({workoutId:hybridEditing.workoutId,values:collectHybridFields(),at:Date.now()}));document.getElementById('draftStatus').textContent='Entwurf auf diesem Gerät gesichert · noch nicht als Training gespeichert';}
  catch(_){document.getElementById('draftStatus').textContent='Entwurf konnte nicht gesichert werden. Bitte Training ausdrücklich speichern.';}
 }
-function previousExercise(id,key){return [...logs].filter(l=>l.key!==key).sort((a,b)=>String(b.dateISO).localeCompare(String(a.dateISO))).flatMap(l=>l.sets||[]).find(s=>s.exercise===id);}
+function previousExercise(id,key){const before=document.getElementById('hDate')?.value||'9999-12-31';return [...logs].filter(l=>l.key!==key&&l.dateISO<=before).sort(newestTraining).flatMap(l=>l.sets||[]).find(s=>s.exercise===id);}
 function openHybrid(key,chosenId){
- const p=HYBRID_PLAN.find(p=>key===`W${p.week}-${p.day}`);if(!p||appBlock!=='hybrid1')return;
+ const p=isFreeSessionKey(key)?{week:1,day:'So',free:true}:HYBRID_PLAN.find(p=>key===`W${p.week}-${p.day}`);if(!p||appBlock!=='hybrid1')return;
  const old=logs.find(l=>l.key===key),allowed=allowedWorkouts(p),candidate=chosenId?null:readDraft(key),draft=allowed.includes(candidate?.workoutId)?candidate:null;
  const id=chosenId||draft?.workoutId||old?.workoutId||(p.day==='So'?suggestedWorkout(p):p.day==='Fr'?p.workoutId:suggestedWorkout(p));
  if(!allowed.includes(id))return;
@@ -180,7 +183,7 @@ document.getElementById('hybridForm').addEventListener('submit',event=>{
    sets.push({exercise:row.dataset.exercise,set:Number(row.dataset.set),weight:ex.bodyweight?'0':weight,reps,rir:read('rir')});
   });
   const read=id=>document.getElementById(id)?.value||'';
-  const entry={...hybridEditing,schemaVersion:9,dateISO:read('hDate'),mode:read('hMode'),status:read('hStatus'),duration:read('hDuration'),rpe:read('hRpe'),note:read('hNote'),sets,weight:read('hWeight'),rounds:read('hRounds'),circuitMinutes:read('hCircuitMinutes'),extraReps:read('hExtraReps'),reps:read('hReps'),elapsedSeconds:read('hElapsedSeconds'),distance:read('hDistance')};
+  const entry={...hybridEditing,recordedAt:logs.find(l=>l.key===hybridEditing.key)?.recordedAt||new Date().toISOString(),schemaVersion:9,dateISO:read('hDate'),mode:read('hMode'),status:read('hStatus'),duration:read('hDuration'),rpe:read('hRpe'),note:read('hNote'),sets,weight:read('hWeight'),rounds:read('hRounds'),circuitMinutes:read('hCircuitMinutes'),extraReps:read('hExtraReps'),reps:read('hReps'),elapsedSeconds:read('hElapsedSeconds'),distance:read('hDistance')};
   const previous=structuredClone(logs);logs=[...logs.filter(l=>l.key!==entry.key),entry];
   if(!storeTrainingChange()){logs=previous;return;}
   try{localStorage.removeItem(draftKey(hybridEditing.key));}catch(_){}

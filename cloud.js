@@ -10,10 +10,10 @@ const cacheKey = () => account ? 'sf_cloud_v1_' + account.id + (appBlock === 'bl
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function normalizeLogs(value) {
-    if (!Array.isArray(value) || value.length > getPlan().length) throw new Error('Backup enthält zu viele Sessions für diesen Block.');
+    if (!Array.isArray(value) || value.length > (appBlock==='hybrid1'?10000:getPlan().length)) throw new Error('Backup enthält zu viele Sessions für diesen Block.');
     const seen = new Set();
     return value.map(row => {
-        const plan = getPlan().find(p => row && row.key === `W${p.week}-${p.day}`);
+        const plan = appBlock==='hybrid1'&&isFreeSessionKey(row?.key)?{week:1,day:'So',free:true}:getPlan().find(p => row && row.key === `W${p.week}-${p.day}`);
         if (!plan || seen.has(row.key) || (appBlock === 'block2' && row.workoutId !== plan.workoutId)) throw new Error('Ungültige oder doppelte Session.');
         seen.add(row.key);
         if (appBlock === 'hybrid1') return normalizeHybridEntry(row, plan);

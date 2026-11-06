@@ -168,9 +168,9 @@ function openHybrid(key,chosenId){
   if(value==='')return;
   document.querySelectorAll(`[data-exercise="${exId}"] [data-field="weight"]`).forEach(input=>input.value=value);saveHybridDraft();
  }));
- document.getElementById('hybridModal').hidden=false;
+ document.getElementById('hybridModal').hidden=false;document.getElementById('hybridModal').scrollTop=0;if(document.body)document.body.style.overflow='hidden';
 }
-function closeHybrid(){if(hybridEditing)saveHybridDraft();document.getElementById('hybridModal').hidden=true;hybridEditing=null;}
+function closeHybrid(){if(hybridEditing)saveHybridDraft();document.getElementById('hybridModal').hidden=true;if(document.body)document.body.style.overflow='';hybridEditing=null;}
 document.getElementById('closeHybrid').addEventListener('click',closeHybrid);
 document.getElementById('hybridForm').addEventListener('submit',event=>{
  event.preventDefault();if(!hybridEditing)return;
@@ -187,7 +187,7 @@ document.getElementById('hybridForm').addEventListener('submit',event=>{
   const previous=structuredClone(logs);logs=[...logs.filter(l=>l.key!==entry.key),entry];
   if(!storeTrainingChange()){logs=previous;return;}
   try{localStorage.removeItem(draftKey(hybridEditing.key));}catch(_){}
-  hybridEditing=null;document.getElementById('hybridModal').hidden=true;render();
+  hybridEditing=null;document.getElementById('hybridModal').hidden=true;if(document.body)document.body.style.overflow='';render();
  }catch(error){alert(error.message);}
 });
 document.getElementById('blockSelect').value=appBlock;

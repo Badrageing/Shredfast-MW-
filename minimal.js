@@ -77,7 +77,7 @@ openHybrid=function(key,id){
   const discard=document.createElement('button');discard.type='button';discard.className='secondary discard-draft';discard.textContent='Entwurf verwerfen';discard.onclick=()=>{
    if(!confirm('Diesen ungespeicherten Entwurf verwerfen?'))return;
    try{localStorage.removeItem(draftKey(key));}catch(_){return alert('Entwurf konnte nicht entfernt werden.');}
-   hybridEditing=null;document.getElementById('hybridModal').hidden=true;render();
+   hybridEditing=null;closeHybrid();render();
   };fields.append(discard);
  }
 };

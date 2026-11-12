@@ -98,3 +98,13 @@ The live form suppresses positive load prompts when today's self-report is tired
 Validation: all 27 workouts opened and saved through DOM forms, then reloaded; legacy storage/sync regression suite; AMRAP/reps/time/ladder results; repeated free sessions; recommendation A/B sequencing, recent-session gate, circuit slot, low form, stale form and future-date exclusion. Real iPhone/HealthKit validation remains outstanding.
 
 References for the boundaries: Apple HealthKit authorization https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data ; readiness construct and limitations https://pubmed.ncbi.nlm.nih.gov/42926133/ . These sources do not validate this app's scheduling thresholds.
+
+## v15 — Revised A/B templates, historical records preserved
+
+New training uses distinct IDs strength-a-v2 and strength-b-v2. Existing strength-a/strength-b entries and unfinished drafts retain their original templates, now labeled as the previous plan. No local record migration or cloud update of old sessions is performed. Legacy drafts remain reachable under a disclosure on the training screen.
+
+A: squat, floor press, RDL and single-arm row (3 sets each); lateral raise, reverse fly, curl, overhead triceps extension and reverse crunch (2 sets each). 9 exercises, 22 sets. B: reverse lunge, bilateral dumbbell row, push-up and RDL (3 sets each); overhead press, hammer curl, lying dumbbell triceps extension on the floor and dumbbell drag (2 sets each). 8 exercises, 20 sets. The new plans each contain exactly one core exercise. B does not superset its row and RDL.
+
+The new exercise IDs rowboth, reversefly and lyingtriceps keep histories, suggested weights and progression separate from unilateral row or overhead triceps work. Unchanged exercises share their existing histories. Next-workout recommendations recognize A/B across both revisions. Completed standard v2 records require 3 main sets; short records require 2, and partial records remain available. Accessories are counted only when actually entered. Legacy validation is unchanged.
+
+Validation: full storage/sync and DOM suites pass; exact exercise order and 22/20 rendered set counts verified; both revised forms saved and reloaded; old B editing preserves unilateral row, close-grip press and side plank; saving v2 emits only one event for the new session and retains the prior normalized records byte-for-byte; short/partial recording and independent row histories verified. Reload the web app to obtain the new templates before syncing v2 records on other devices.

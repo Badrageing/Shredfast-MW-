@@ -14,7 +14,7 @@ const ctx=vm.createContext({console,structuredClone,crypto:{randomUUID},setTimeo
 const run = code=>vm.runInContext(code,ctx);
 const html=fs.readFileSync(__dirname+'/index.html','utf8');
 run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''));
-run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/catalog.js','utf8'));
+run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/plan-update.js','utf8'));run(fs.readFileSync(__dirname+'/catalog.js','utf8'));
 run("appBlock='block2'");
 run(fs.readFileSync(__dirname+'/cloud.js','utf8'));
 async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await new Promise(r=>setTimeout(r,5))}throw Error('sync never finished')}
@@ -91,6 +91,19 @@ async function idle(){for(let i=0;i<100;i++){if(!run('syncRunning'))return;await
  assert.equal(run("normalizeLogs([{...timed,status:'partial',elapsedSeconds:''}])[0].status"),'partial');
  assert.throws(()=>run("normalizeLogs([{...timed,duration:'5'}])"),'elapsed cannot exceed total duration');
  assert.throws(()=>run("normalizeLogs([{...timed,workoutId:'library-b1-08',rounds:'11'}])"),'ladder ends at step 10');
+ await nodes.get('blockSelect').change({target:{value:'block2'}});
+
+ // Saving a revised plan must not rewrite or emit changes for old entries.
+ await nodes.get('blockSelect').change({target:{value:'hybrid1'}});
+ run('globalThis.beforeRevision=structuredClone(logs)');const oldEvents=events.length;
+ run(`globalThis.newB={key:'F-'+crypto.randomUUID(),schemaVersion:9,workoutId:'strength-b-v2',dateISO:'2026-11-12',mode:'standard',duration:'40',sets:['lunge','rowboth','pushup','rdl'].flatMap(exercise=>[1,2,3].map(set=>({exercise,set,weight:exercise==='pushup'?'0':'12',reps:'10',rir:'2'})))}`);
+ run('logs.push(newB)');assert.equal(run('storeTrainingChange()'),true);await idle();assert.equal(events.length,oldEvents+1,'only the new session uploaded');
+ assert.equal(run('JSON.stringify(logs.filter(l=>l.key!==newB.key))'),run('JSON.stringify(beforeRevision)'),'old records preserved exactly');
+ assert.throws(()=>run('normalizeLogs([{...newB,sets:newB.sets.filter(s=>s.set<3)}])'),'standard revised plan needs 3 main sets');
+ assert.equal(run("normalizeLogs([{...newB,mode:'short',sets:newB.sets.filter(s=>s.set<3)}])[0].sets.length"),8);
+ assert.equal(run("normalizeLogs([{...newB,status:'partial',sets:newB.sets.slice(0,1)}])[0].status"),'partial');
+ assert.throws(()=>run("normalizeLogs([{...newB,sets:newB.sets.map(s=>s.exercise==='rowboth'?{...s,exercise:'row'}:s)}])"),'old and new rows cannot be silently mixed');
+ run('loadDeviceState()');assert.equal(run('logs.at(-1).workoutId'),'strength-b-v2');
  await nodes.get('blockSelect').change({target:{value:'block2'}});
  // Simulate a storage write failure. Saving must not claim success.
  const old=ctx.localStorage.setItem;ctx.localStorage.setItem=()=>{throw Error('quota')};

@@ -13,7 +13,7 @@ function fill(id,value){assert(el(id),'Missing input '+id);el(id).value=String(v
 function change(id,value){el(id).value=value;el(id).dispatchEvent(new window.Event('change',{bubbles:true}));}
 function submit(){el('hybridForm').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));}
 run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''));
-run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/catalog.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));run(fs.readFileSync(__dirname+'/pro.js','utf8'));run(fs.readFileSync(__dirname+'/minimal.js','utf8'));
+run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/plan-update.js','utf8'));run(fs.readFileSync(__dirname+'/catalog.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));run(fs.readFileSync(__dirname+'/pro.js','utf8'));run(fs.readFileSync(__dirname+'/minimal.js','utf8'));
 (async()=>{
  run('init()');await run('initCloud()');
  assert(el('content').textContent.includes('AMRAP15 Press Up'));assert.equal(document.querySelectorAll('.nav .nav-btn').length,2);assert.equal(document.querySelectorAll('.session-line').length,30);assert(!el('content').textContent.includes('Gewichtsempfehlung')); 
@@ -91,11 +91,11 @@ run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirn
  }
  assert.deepEqual(alerts,[]);run('loadDeviceState()');assert.equal(run('logs.filter(l=>HYBRID_WORKOUTS[l.workoutId].kind==="circuit").length'),31);
  // Recommendation rules, date boundary and no made-up health data.
- run('logs=[]');assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'unknown').id"),'strength-a');
+ run('logs=[]');assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'unknown').id"),'strength-a-v2');
  run(`logs=[{key:'W1-Mo',workoutId:'strength-a',dateISO:'2026-11-02',date:'2.11.2026',sets:[]}]`);
- assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),'strength-b');
+ assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),'strength-b-v2');
  run("logs[0].dateISO='2026-11-05';logs[0].sets=[{exercise:'squat'}]");assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),null);
- run("logs[0].dateISO='2026-11-07'");assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),'strength-a');
+ run("logs[0].dateISO='2026-11-07'");assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),'strength-a-v2');
  run(`logs=['2026-11-02','2026-11-04'].map((dateISO,i)=>({key:'W'+(i+1)+'-Mo',workoutId:i?'strength-b':'strength-a',dateISO,sets:[]}))`);
  assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'fit').id"),'circuit-press');
  assert.equal(run("nextTraining(new Date('2026-11-06T12:00:00Z'),'tired').id"),null);
@@ -103,5 +103,22 @@ run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirn
  run("logs=[];currentTab='plan';render()");change('todayForm','tired');assert(el('content').textContent.includes('Heute leichter angehen'));
  run("startWorkout('strength-a')");assert(document.querySelector('.progress-advice').textContent.includes('Keine Gewichtssteigerung'));
  storage.set(run('formKey()'),JSON.stringify({date:'2000-01-01',form:'fit'}));assert.equal(run('todayForm()'),'unknown');
+
+ // Revised plans preserve old exercise lists while new sessions use independent IDs.
+ run("logs=[];savedLogs=[];pending=[];storageFault=false");
+ for(const [workoutId,expectedIds,total]of [
+  ['strength-a-v2',['squat','floor','rdl','row','lateral','reversefly','curl','triceps','reverse'],22],
+  ['strength-b-v2',['lunge','rowboth','pushup','rdl','press','hammer','lyingtriceps','drag'],20]
+ ]){
+  run(`startWorkout('${workoutId}')`);
+  assert.deepEqual([...document.querySelectorAll('#hybridFields fieldset')].map(f=>f.querySelector('.set-row').dataset.exercise),expectedIds);
+  assert.equal(document.querySelectorAll('#hybridFields .set-row').length,total);
+  const main=run(`JSON.parse(JSON.stringify(HYBRID_WORKOUTS['${workoutId}'].main))`);
+  for(const ex of main)for(const n of [1,2,3]){if(el(`s-${ex}-${n}-weight`))fill(`s-${ex}-${n}-weight`,12);fill(`s-${ex}-${n}-reps`,10);}
+  if(workoutId==='strength-b-v2'){fill('s-lyingtriceps-1-weight',5);fill('s-lyingtriceps-1-reps',12);fill('s-drag-1-weight',5);fill('s-drag-1-reps',8);}
+  fill('hDuration',40);submit();assert.equal(run('logs.at(-1).workoutId'),workoutId);
+ }
+ run('loadDeviceState()');assert.equal(run('logs.length'),2);assert.equal(run("exerciseProgress('rowboth').state"),'hold');
+ run("openHybrid('W1-Mi','strength-b')");assert(el('s-row-1-reps'),'old B retains unilateral row');assert(el('s-closefloor-1-reps'));assert(el('s-side-1-reps'));assert(!el('s-rowboth-1-reps'));
  console.log('PASS: DOM forms; rotation; arms/chest/core fields; actual sets only; weighted drag; draft recovery; completed/partial counts; reps/time circuit; optional run/strength selection; timer; draft account isolation.');
 })().catch(e=>{console.error(e,alerts);process.exitCode=1});

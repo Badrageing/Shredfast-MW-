@@ -47,7 +47,7 @@ function startWorkout(id){
 }
 renderHybridPlan=function(){
  const today=localDate(new Date()),last=[...logs].filter(l=>l.dateISO<=today&&completed(l)&&HYBRID_WORKOUTS[l.workoutId]?.kind==='strength').sort(newestTraining)[0];
- const next=last?.workoutId==='strength-a'?'strength-b':'strength-a',drafts=workoutDrafts();
+ const next=strengthFamily(last?.workoutId)==='a'?'strength-b-v2':'strength-a-v2',drafts=workoutDrafts();
  document.getElementById('content').innerHTML=`<div class="minimal-title"><h2>Was trainierst du heute?</h2></div><p class="empty-copy">${last?`Zuletzt ${HYBRID_WORKOUTS[last.workoutId].name} · ${escapeHTML(last.date)}`:'Freie Auswahl. Trainiere A und B im Wechsel.'}</p>`+Object.entries(HYBRID_WORKOUTS).filter(([id,w])=>w.kind!=='choice').map(([id,w])=>`<article class="session-line"><div><span class="session-type">${id===next?'Als Nächstes empfohlen':w.kind==='strength'?'Kraft':w.kind==='circuit'?'ShredFast':'Ausdauer'}</span><h3>${w.name}</h3><p>${w.kind==='strength'?'3 Sätze groß · 2 Sätze klein':w.kind==='circuit'?`${w.defaultMinutes} Min · Anleitung im Workout`:'20–30 Min locker'}</p></div><button onclick="startWorkout('${id}')">${drafts.some(x=>x.id===id)?'Fortsetzen':'Start'}</button></article>`).join('');
 };
 renderHybridProgress=function(){
@@ -90,7 +90,7 @@ function todayForm(now=new Date()){
 function nextTraining(now=new Date(),form=todayForm(now)){
  const today=localDate(now),dated=logs.filter(l=>l.dateISO<=today).sort(newestTraining);
  const last=dated.find(l=>completed(l)&&HYBRID_WORKOUTS[l.workoutId]?.kind==='strength');
- const next=last?.workoutId==='strength-a'?'strength-b':'strength-a';
+ const next=strengthFamily(last?.workoutId)==='a'?'strength-b-v2':'strength-a-v2';
  const days=l=>Math.round((Date.parse(today+'T12:00:00Z')-Date.parse(l.dateISO+'T12:00:00Z'))/86400000);
  const recent=dated.filter(l=>days(l)<7&&completed(l)),strength=recent.filter(l=>HYBRID_WORKOUTS[l.workoutId]?.kind==='strength'),circuits=recent.filter(l=>HYBRID_WORKOUTS[l.workoutId]?.kind==='circuit');
  if(form==='rest')return {id:null,title:'Heute Erholung einplanen',reason:'Du fühlst dich stark erschöpft oder angeschlagen. Pausiere das intensive Training; entscheide nach deinem Befinden über leichte Bewegung.',basis:'Deine heutige Angabe'};
@@ -113,7 +113,7 @@ renderHybridPlan=function(){
  const row=id=>{const w=HYBRID_WORKOUTS[id];return `<article class="session-line" data-workout="${id}"><div><span class="session-type">${w.kind==='strength'?'Kraft':w.kind==='circuit'?'ShredFast':'Ausdauer'}${CIRCUIT_ROTATION.includes(id)?' · Rotationsempfehlung':''}</span><h3>${w.name}</h3><p>${w.kind==='strength'?'3 Sätze groß · 2 Sätze klein':w.kind==='circuit'?`${w.defaultMinutes} Min ${w.budgetOnly?'Zeitbudget':w.metric==='rounds'?'AMRAP':'Zeitlimit'}`:'20–30 Min locker'}</p></div><button onclick="startWorkout('${id}')">${drafts.some(x=>x.id===id)?'Fortsetzen':'Start'}</button></article>`;};
  document.getElementById('content').innerHTML=`<section class="next-training"><span class="session-type">Vorschlag für heute</span><h2>${rec.title}</h2><p>${escapeHTML(rec.reason)}</p><small>${escapeHTML(rec.basis)}</small>${rec.id?`<button onclick="startWorkout('${rec.id}')">${drafts.some(x=>x.id===rec.id)?'Fortsetzen':'Workout öffnen'}</button>`:''}</section>
  <details class="minimal-details"><summary>Heutige Form · ${form==='unknown'?'noch offen':form==='fit'?'fit':form==='tired'?'müde / Muskelkater':'erschöpft / angeschlagen'}</summary><label for="todayForm">Wie fühlst du dich heute?</label><select id="todayForm" class="pro-search"><option value="unknown" ${form==='unknown'?'selected':''}>Keine Angabe</option><option value="fit" ${form==='fit'?'selected':''}>Fit / normal erholt</option><option value="tired" ${form==='tired'?'selected':''}>Müde / deutlicher Muskelkater</option><option value="rest" ${form==='rest'?'selected':''}>Stark erschöpft / angeschlagen</option></select><p>Freiwillige Selbsteinschätzung, nur auf diesem Gerät für dieses Konto und diesen Tag gespeichert. Apple Health ist nicht verbunden. Die Empfehlung ist eine einfache Trainingsregel, kein gemessener Erholungswert.</p></details>
- <div class="minimal-title"><h2>Freie Auswahl</h2></div>${['strength-a','strength-b','easy-run'].map(row).join('')}
+ ${drafts.some(x=>['strength-a','strength-b'].includes(x.id))?'<details class="minimal-details"><summary>Offene Entwürfe · bisheriger Plan</summary>'+drafts.filter(x=>['strength-a','strength-b'].includes(x.id)).map(x=>row(x.id)).join('')+'</details>':''}<div class="minimal-title"><h2>Freie Auswahl</h2></div>${['strength-a-v2','strength-b-v2','easy-run'].map(row).join('')}
  <details class="minimal-details circuit-library"><summary>Alle ShredFast-Workouts (${LIBRARY_IDS.length})</summary><input id="circuitSearch" class="pro-search" type="search" placeholder="Zirkel suchen …" aria-label="ShredFast-Workouts suchen">${LIBRARY_IDS.map(row).join('')}<p id="noCircuits" hidden>Kein passender Zirkel gefunden.</p></details>`;
  document.getElementById('todayForm').onchange=event=>{
   try{localStorage.setItem(formKey(),JSON.stringify({date:localDate(new Date()),form:event.target.value}));}catch(_){return alert('Tagesform konnte nicht gespeichert werden.');}renderHybridPlan();

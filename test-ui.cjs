@@ -13,7 +13,7 @@ function fill(id,value){assert(el(id),'Missing input '+id);el(id).value=String(v
 function change(id,value){el(id).value=value;el(id).dispatchEvent(new window.Event('change',{bubbles:true}));}
 function submit(){el('hybridForm').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true}));}
 run(html.match(/<script>\s*\/\/ ─── DATA[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g,''));
-run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/plan-update.js','utf8'));run(fs.readFileSync(__dirname+'/catalog.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));run(fs.readFileSync(__dirname+'/pro.js','utf8'));run(fs.readFileSync(__dirname+'/minimal.js','utf8'));
+run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirname+'/plan-update.js','utf8'));run(fs.readFileSync(__dirname+'/catalog.js','utf8'));run(fs.readFileSync(__dirname+'/cloud.js','utf8'));run(fs.readFileSync(__dirname+'/pro.js','utf8'));run(fs.readFileSync(__dirname+'/minimal.js','utf8'));run(fs.readFileSync(__dirname+'/circuit-coach.js','utf8'));
 (async()=>{
  run('init()');await run('initCloud()');
  assert(el('content').textContent.includes('AMRAP15 Press Up'));assert.equal(document.querySelectorAll('.nav .nav-btn').length,2);assert.equal(document.querySelectorAll('.session-line').length,30);assert(!el('content').textContent.includes('Gewichtsempfehlung')); 
@@ -120,5 +120,21 @@ run(fs.readFileSync(__dirname+'/training.js','utf8'));run(fs.readFileSync(__dirn
  }
  run('loadDeviceState()');assert.equal(run('logs.length'),2);assert.equal(run("exerciseProgress('rowboth').state"),'hold');
  run("openHybrid('W1-Mi','strength-b')");assert(el('s-row-1-reps'),'old B retains unilateral row');assert(el('s-closefloor-1-reps'));assert(el('s-side-1-reps'));assert(!el('s-rowboth-1-reps'));
+
+ // Last-result cards never copy results into a new session and preserve drafts/edits.
+ run("closeHybrid();logs=[];savedLogs=[];pending=[];account=null");storage.clear();
+ run(`globalThis.latestCircuit={key:'F-'+crypto.randomUUID(),workoutId:'circuit-press',dateISO:localDate(new Date()),date:new Date().toLocaleDateString('de-DE'),weight:'17',rounds:'6',extraReps:'8',circuitMinutes:'12',duration:'18',rpe:'7',reps:'',elapsedSeconds:'',sets:[],status:'completed'}`);
+ run('logs=[latestCircuit];render()');assert(document.querySelector('[data-workout=circuit-press]').textContent.includes('6 Runden + 8 Wdh.'));
+ run("startWorkout('circuit-press')");assert(el('circuitLastReport').textContent.includes('17 kg/Hantel'));assert.equal(el('hWeight').value,'17');assert.equal(el('hCircuitMinutes').value,'12');assert.equal(el('hRounds').value,'');
+ fill('hWeight',13);fill('hRounds',4);run("closeHybrid();startWorkout('circuit-press')");assert.equal(el('hWeight').value,'13');assert.equal(el('hRounds').value,'4');
+ run("closeHybrid();latestCircuit.rpe='9'");assert.equal(run("circuitWeight('circuit-press').value"),null);
+ run("latestCircuit.rpe='7';latestCircuit.status='partial'");assert.equal(run("circuitWeight('circuit-press').value"),null);
+ run("latestCircuit.status='completed';latestCircuit.dateISO='2000-01-01'");assert.equal(run("circuitWeight('circuit-press').value"),null);
+ run("latestCircuit.dateISO='2099-01-01'");assert.equal(run("lastCircuit('circuit-press')"),null);
+ storage.set('sf_v6_logs',JSON.stringify([{key:'W1-Mo',workoutId:'n-07',date:'1.11.2026',weight:'15',rounds:'5',mins:'',secs:''}]));
+ assert.equal(run("lastCircuit('circuit-press')._archive"),true);assert(run("circuitResultText(lastCircuit('circuit-press'))").includes('5 Runden'));assert.equal(run("circuitWeight('circuit-press').value"),null,'archive weight units require confirmation');
+ run("account={id:'different-account'}");assert.equal(run("lastCircuit('circuit-press')"),null,'unassigned local archive never read into signed-in account');
+ storage.set('sf_cloud_v1_different-account',JSON.stringify({logs:[{key:'W1-Mo',workoutId:'n-07',date:'1.11.2026',weight:'16',rounds:'5',mins:'2',secs:'30'}]}));assert(run("circuitResultText(lastCircuit('circuit-press'))").includes('2:30 Min'));
+ assert.equal(storage.has('sf_v6_logs'),true,'archive is read-only');
  console.log('PASS: DOM forms; rotation; arms/chest/core fields; actual sets only; weighted drag; draft recovery; completed/partial counts; reps/time circuit; optional run/strength selection; timer; draft account isolation.');
 })().catch(e=>{console.error(e,alerts);process.exitCode=1});
